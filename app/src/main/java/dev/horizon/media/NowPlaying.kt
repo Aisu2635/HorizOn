@@ -18,6 +18,8 @@ data class NowPlaying(
     val playbackSpeed: Float,
     val canSkipPrevious: Boolean,
     val canSkipNext: Boolean,
+    /** Whether the app accepts seeking (some live streams don't). */
+    val canSeek: Boolean = false,
 ) {
     /** Extrapolates the playback position to [nowElapsed], clamped to the track length. */
     fun positionAt(nowElapsed: Long): Long {

@@ -132,6 +132,10 @@ class MediaRepository(context: Context) {
         active?.transportControls?.skipToPrevious()
     }
 
+    fun seekTo(positionMs: Long) {
+        active?.transportControls?.seekTo(positionMs.coerceAtLeast(0L))
+    }
+
     /**
      * Opens the app that owns the shown session: its own "now playing" screen when it provides
      * one, otherwise its launcher entry. Returns false if neither could be opened.
@@ -201,6 +205,7 @@ class MediaRepository(context: Context) {
             playbackSpeed = state?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
             canSkipPrevious = actions and PlaybackState.ACTION_SKIP_TO_PREVIOUS != 0L,
             canSkipNext = actions and PlaybackState.ACTION_SKIP_TO_NEXT != 0L,
+            canSeek = actions and PlaybackState.ACTION_SEEK_TO != 0L,
         )
         return SessionSnapshot(nowPlaying, artUri)
     }
@@ -212,10 +217,37 @@ class MediaRepository(context: Context) {
         null
     }
 
-    /** Loads art from a local URI when the app didn't embed a bitmap, and caps its size. */
+    // The art last handed to the UI, and what it was made from. Every session update carries a
+    // fresh copy of the art bitmap, so without this the UI would see "new" art (and fade it,
+    // and re-tint the card) several times per track change.
+    private var artTrack: String? = null
+    private var artSource: String? = null
+    private var artShown: Bitmap? = null
+
+    /**
+     * Resolves the art to show: reuses the previous bitmap while the track and its art are
+     * unchanged (or while an update arrives without art), otherwise loads a local URI if needed
+     * and caps the size. Called sequentially from [nowPlaying]'s mapLatest.
+     */
     private fun SessionSnapshot.withLoadedArt(): NowPlaying {
-        val bitmap = nowPlaying.art ?: artUri?.let(::loadLocalArt)
-        return nowPlaying.copy(art = bitmap?.capped())
+        val track = "${nowPlaying.packageName}|${nowPlaying.title}|${nowPlaying.artist}"
+        val embedded = nowPlaying.art
+        val source = when {
+            embedded != null -> "bitmap:${embedded.width}x${embedded.height}"
+            artUri != null -> "uri:$artUri"
+            else -> null
+        }
+        val sameTrack = track == artTrack
+        val art = when {
+            sameTrack && (source == null || source == artSource) -> artShown
+            else -> (embedded ?: artUri?.let(::loadLocalArt))?.capped()
+        }
+        if (!sameTrack || source != null) {
+            artTrack = track
+            artSource = source
+            artShown = art
+        }
+        return nowPlaying.copy(art = art)
     }
 
     private fun loadLocalArt(uri: String): Bitmap? {

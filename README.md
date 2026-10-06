@@ -24,7 +24,21 @@ HorizOn has **no internet permission**. It uses notification access only to read
 
 ## Install
 
-Download the APK from [GitHub Releases](../../releases) once v0.1 ships.
+1. Download the latest `HorizOn-vX.Y.Z.apk` from [Releases](https://github.com/Aisu2635/HorizOn/releases) on your phone and open it. Android will ask you to allow installs from your browser or file manager.
+2. Turn the phone sideways and open **HorizOn**.
+3. Tap **Allow access** on the music card. Because the app isn't from the Play Store, Android 13+ may say the setting is **restricted**: long-press the HorizOn icon → **App info** → **⋮** → **Allow restricted settings**, then try again.
+4. Optional: when headphones are connected, tap **Show headphone battery** and allow **Nearby devices**.
+
+Requires Android 8.0 or newer.
+
+## Release (maintainers)
+
+Releases are built and signed by GitHub Actions when a version tag is pushed:
+
+1. Bump `versionCode` and `versionName` in `app/build.gradle.kts` and commit.
+2. `git tag v0.1.0 && git push origin v0.1.0` (the tag must match `versionName`).
+
+The workflow needs these repository secrets: `HORIZON_KEYSTORE_BASE64`, `HORIZON_KEYSTORE_PASSWORD`, `HORIZON_KEY_ALIAS`, `HORIZON_KEY_PASSWORD`. To sign locally instead, create a `keystore.properties` in the project root (it is git-ignored) with `storeFile`, `storePassword`, `keyAlias` and `keyPassword`.
 
 ## Build
 

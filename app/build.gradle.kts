@@ -1,7 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Release signing comes from keystore.properties locally (never committed) or from
+// environment variables in CI. Without either, release builds are left unsigned.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use(::load)
+}
+
+fun signingValue(property: String, envVar: String): String? =
+    keystoreProperties.getProperty(property) ?: System.getenv(envVar)
 
 android {
     namespace = "dev.horizon"
@@ -17,8 +29,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            signingValue("storeFile", "HORIZON_KEYSTORE_FILE")?.let { path ->
+                storeFile = rootProject.file(path)
+                storePassword = signingValue("storePassword", "HORIZON_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "HORIZON_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "HORIZON_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release").takeIf { it.storeFile != null }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

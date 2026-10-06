@@ -247,6 +247,7 @@ fun DeskScreen(onClose: () -> Unit) {
                                 onNext = media::skipNext,
                                 onTap = { controlsVisible = !controlsVisible },
                                 onOpenApp = { activity?.let(media::openPlayerApp) },
+                                onSeek = media::seekTo,
                             )
                         } else {
                             MusicAccessCard(
