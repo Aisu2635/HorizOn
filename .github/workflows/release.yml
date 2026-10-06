@@ -12,12 +12,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Check tag matches versionName
         run: |
@@ -43,7 +43,8 @@ jobs:
           HORIZON_KEYSTORE_PASSWORD: ${{ secrets.HORIZON_KEYSTORE_PASSWORD }}
           HORIZON_KEY_ALIAS: ${{ secrets.HORIZON_KEY_ALIAS }}
           HORIZON_KEY_PASSWORD: ${{ secrets.HORIZON_KEY_PASSWORD }}
-        run: ./gradlew testReleaseUnitTest assembleRelease
+        # Unit tests only exist for the debug variant (AGP default); they cover the same code.
+        run: ./gradlew testDebugUnitTest assembleRelease
 
       - name: Publish GitHub release
         env:
