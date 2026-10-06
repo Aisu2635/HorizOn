@@ -45,13 +45,25 @@ class SettingsRepository(context: Context) {
     /** Whether to mirror Google Maps' turn-by-turn directions. Off until the user turns it on. */
     val showNavigation: Flow<Boolean> = store.data.map { it[SHOW_NAVIGATION] ?: false }
 
+    /** Turning directions on or off is an answer to the "show directions here?" prompt too. */
     suspend fun setShowNavigation(show: Boolean) {
-        store.edit { it[SHOW_NAVIGATION] = show }
+        store.edit {
+            it[SHOW_NAVIGATION] = show
+            it[NAV_PROMPT_DISMISSED] = true
+        }
+    }
+
+    /** Whether the user has answered the "show directions here?" prompt (or chosen in the controls). */
+    val navPromptDismissed: Flow<Boolean> = store.data.map { it[NAV_PROMPT_DISMISSED] ?: false }
+
+    suspend fun setNavPromptDismissed(dismissed: Boolean) {
+        store.edit { it[NAV_PROMPT_DISMISSED] = dismissed }
     }
 
     private companion object {
         val CLOCK_FACE = stringPreferencesKey("clock_face")
         val MUSIC_PROMPT_DISMISSED = booleanPreferencesKey("music_prompt_dismissed")
         val SHOW_NAVIGATION = booleanPreferencesKey("show_navigation")
+        val NAV_PROMPT_DISMISSED = booleanPreferencesKey("nav_prompt_dismissed")
     }
 }

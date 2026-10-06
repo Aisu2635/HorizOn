@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug builds only: a fake music session for testing the player without a real music app. -->
+<!-- Debug builds only: a fake music session and a fake route, for testing without real apps. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <activity
             android:name=".debug.DemoMediaActivity"
+            android:exported="true"
+            android:theme="@style/Theme.HorizOn" />
+        <!-- A made-up route for the directions panel (no Maps or moving needed). -->
+        <activity
+            android:name=".debug.DemoNavActivity"
             android:exported="true"
             android:theme="@style/Theme.HorizOn" />
     </application>

@@ -1,6 +1,6 @@
 # HorizOn: Navigation plan
 
-> Status: N0 done, go (2026-10-06); N1 and N2 done. See [docs/nav/N0-report.md](docs/nav/N0-report.md). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
+> Status: N0 done, go (2026-10-06); N1, N2 and N3 done. See [docs/nav/N0-report.md](docs/nav/N0-report.md). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
 
 ## 1. Goal
 
@@ -103,7 +103,7 @@ Parsing rules:
 
 New files under `ui/nav/`:
 - `NavPanel.kt`: the left half. Header line with date and time (the clock shrinks into this line while navigating, as in the mockup), large maneuver arrow, distance in the big clock type style, instruction + street, then an ETA / remaining row, and a small "via Google Maps" label (app label text only; no Google logo, consistent with the existing rule against service logos).
-- `RoadBackdrop.kt`: an optional, subtle decorative perspective-road drawing on `Canvas` behind the panel. It is clearly decorative, not a map, and can be turned off. It is drawn once per maneuver change, not animated per frame (battery and heat).
+- `RoadBackdrop.kt` (deferred: the panel reads well without it on a real phone; revisit if the mockup's look is wanted): an optional, subtle decorative perspective-road drawing on `Canvas` behind the panel. It is clearly decorative, not a map, and can be turned off. It is drawn once per maneuver change, not animated per frame (battery and heat).
 - Maneuver icon: use Maps' large-icon bitmap, tinted to `Paper` with a `ColorFilter`. If missing, map keywords in the instruction ("left", "right", "U-turn", "roundabout", "merge", "arrive") to our own vector icons in `res/drawable/`.
 
 Layout rules in `DeskScreen`:
@@ -128,7 +128,7 @@ On the nav pill / empty state, a "Open Google Maps" action:
 ### 3.7 Settings and onboarding
 - `SettingsRepository`: `showNavigation: Flow<Boolean>` (default false), `roadBackdrop: Flow<Boolean>` (default true).
 - If notification access is already granted, the setting is a single toggle in the tap controls.
-- One-time hint: when HorizOn sees an ongoing notification from an allowlisted package (package name only, nothing read) and the toggle is off, show a small card "Show directions from Google Maps here?" with Turn on / Not now, like the music access card.
+- One-time prompt (done in N3): while directions are off, the listener still notes whether Maps has an ongoing `navigation`-category notification (package, category and flags only; no text). If so, and the user has never chosen, a pill at the top asks "Google Maps is navigating. Show directions here?" with Show / Not now. Any choice, including the switch in the controls, stops it for good.
 
 ## 4. Privacy and docs changes
 
@@ -149,7 +149,7 @@ On the nav pill / empty state, a "Open Google Maps" action:
 1. **N0: Spike. Done:** go, see [N0 report](docs/nav/N0-report.md). Debug sample logger; capture real Maps notifications (2 locales, km/mi, Android 14 and 16). Confirm the fields in 3.1. Exit: fixtures committed, go/no-go on approach A.
 2. **N1: Data. Done.** `NavState`, `NavParser` + tests, `NavRepository`, listener overrides with the package allowlist, `showNavigation` setting.
 3. **N2: UI. Done** (tested on device 2026-10-06, T1–T11 pass; turn changes while moving not yet seen). The on/off switch lives in the tap controls ("Directions on/off") until there is a settings screen. `NavPanel`, maneuver icon tinting + fallbacks, layout rules in `DeskScreen`, directions pill, tap-to-open Maps.
-4. **N3: Polish.** `RoadBackdrop`, transitions, burn-in, accessibility, one-time hint card, debug `DemoNavActivity`.
+4. **N3: Polish. Done, not yet tried on a phone.** Debug `DemoNavActivity` (a made-up route: `adb shell am start -n dev.horizon/.debug.DemoNavActivity`), the one-time prompt, a rise-in transition for new maneuvers and a gliding trip progress bar. Burn-in shift and the live-region announcement already came with N2. `RoadBackdrop` deferred.
 5. **N4: Docs and release.** README privacy text, Plan.md updates, new screenshot `docs/screens/nav.svg`, ship in the next minor version.
 
 ## 7. Risks

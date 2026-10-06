@@ -78,6 +78,7 @@ import dev.horizon.settings.SettingsRepository
 import dev.horizon.ui.faces.ClockFaceContent
 import dev.horizon.ui.faces.ClockTime
 import dev.horizon.ui.nav.DirectionsPill
+import dev.horizon.ui.nav.DirectionsPrompt
 import dev.horizon.ui.nav.NavPanel
 import dev.horizon.ui.theme.Amber
 import dev.horizon.ui.theme.Muted
@@ -150,6 +151,10 @@ fun DeskScreen(onClose: () -> Unit) {
     val showNavigation by settings.showNavigation.collectAsStateWithLifecycle(initialValue = false)
     val navState by NavRepository.state.collectAsStateWithLifecycle()
     val nav = navState.takeIf { hasAccess && showNavigation }
+    // Offer directions once when Maps is navigating and the user hasn't chosen yet.
+    val mapsNavigating by NavRepository.navigating.collectAsStateWithLifecycle()
+    val navPromptDismissed by settings.navPromptDismissed.collectAsStateWithLifecycle(initialValue = true)
+    val showNavPrompt = hasAccess && mapsNavigating && !showNavigation && !navPromptDismissed
 
     // Bluetooth headphones: detected without permission; name and battery need "Nearby devices".
     var bluetoothGranted by remember { mutableStateOf(context.hasBluetoothPermission()) }
@@ -348,6 +353,19 @@ fun DeskScreen(onClose: () -> Unit) {
                 .padding(top = 20.dp),
         ) {
             headset?.let { HeadsetConnectedBanner(it) }
+        }
+        AnimatedVisibility(
+            visible = showNavPrompt && !bannerVisible,
+            enter = fadeIn() + slideInVertically { -it },
+            exit = fadeOut() + slideOutVertically { -it },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 20.dp, start = 24.dp, end = 24.dp),
+        ) {
+            DirectionsPrompt(
+                onShow = { scope.launch { settings.setShowNavigation(true) } },
+                onNotNow = { scope.launch { settings.setNavPromptDismissed(true) } },
+            )
         }
         AnimatedVisibility(
             visible = controlsVisible,

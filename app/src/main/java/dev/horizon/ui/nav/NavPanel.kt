@@ -2,8 +2,12 @@ package dev.horizon.ui.nav
 
 import android.content.Context
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -24,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,9 +66,13 @@ import dev.horizon.nav.formatRouteDistance
 import dev.horizon.ui.BatteryLabel
 import dev.horizon.ui.DateLabel
 import dev.horizon.ui.theme.Amber
+import dev.horizon.ui.theme.Ink
 import dev.horizon.ui.theme.Muted
 import dev.horizon.ui.theme.Paper
 import dev.horizon.ui.theme.PillSurface
+
+/** How long a new maneuver takes to replace the old one. */
+private const val MANEUVER_MS = 450
 
 /**
  * Turn-by-turn directions mirrored from Google Maps: the next maneuver, then ETA and distance
@@ -99,9 +108,12 @@ fun NavPanel(
             Spacer(Modifier.weight(1f))
             AnimatedContent(
                 targetState = nav.info,
-                // The distance ticks down in place; a new maneuver fades in.
+                // The distance ticks down in place; a new maneuver rises in as the old one leaves.
                 contentKey = { "${it.instruction}|${it.road}" },
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                transitionSpec = {
+                    (slideInVertically(tween(MANEUVER_MS)) { it / 4 } + fadeIn(tween(MANEUVER_MS))) togetherWith
+                        (slideOutVertically(tween(MANEUVER_MS)) { -it / 4 } + fadeOut(tween(MANEUVER_MS / 2)))
+                },
                 label = "maneuver",
             ) { info ->
                 Maneuver(nav, info, iconSize, distanceSize)
@@ -213,7 +225,9 @@ private fun TripFact(label: String?, value: String) {
 }
 
 @Composable
-private fun TripProgress(progress: Float) {
+private fun TripProgress(target: Float) {
+    // Maps updates about once a second; glide between updates instead of jumping.
+    val progress by animateFloatAsState(target.coerceIn(0f, 1f), tween(900), label = "tripProgress")
     Canvas(
         Modifier
             .fillMaxWidth()
@@ -222,8 +236,51 @@ private fun TripProgress(progress: Float) {
         val y = size.height / 2
         val stroke = size.height
         drawLine(PillSurface, Offset(stroke / 2, y), Offset(size.width - stroke / 2, y), stroke, StrokeCap.Round)
-        val end = stroke / 2 + (size.width - stroke) * progress.coerceIn(0f, 1f)
+        val end = stroke / 2 + (size.width - stroke) * progress
         drawLine(Amber, Offset(stroke / 2, y), Offset(end, y), stroke, StrokeCap.Round)
+    }
+}
+
+/**
+ * Offered once, when Google Maps is navigating but directions are off. Knowing that Maps is
+ * navigating needs no notification text, so this can show before the user opts in.
+ */
+@Composable
+fun DirectionsPrompt(onShow: () -> Unit, onNotNow: () -> Unit, modifier: Modifier = Modifier) {
+    val pill = RoundedCornerShape(50)
+    Row(
+        modifier
+            .clip(pill)
+            .background(PillSurface)
+            .padding(start = 22.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("➤", color = Amber, fontSize = 16.sp)
+        Text(
+            "Google Maps is navigating. Show directions here?",
+            color = Paper,
+            fontSize = 15.sp,
+            maxLines = 2,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Box(
+            Modifier
+                .clip(pill)
+                .background(Paper)
+                .clickable(role = Role.Button, onClick = onShow)
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+        ) {
+            Text("Show", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Box(
+            Modifier
+                .clip(pill)
+                .clickable(role = Role.Button, onClick = onNotNow)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Text("Not now", color = Muted, fontSize = 15.sp)
+        }
     }
 }
 
