@@ -12,3 +12,11 @@
 *.keystore
 *.jks
 /keystore.properties
+
+# Unredacted navigation captures (docs/nav/N0-testing.md)
+/nav_logcat.txt
+/samples.jsonl
+/nav_samples.tar
+/nav_samples_out/
+/crash_log.txt
+/shade_*.png

@@ -6,7 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 // Colors taken from docs/screens mockups.
-val Ink = Color(0xFF070708)
+// Pure black: on OLED screens these pixels are switched off, which saves power and stays dark at night.
+val Ink = Color(0xFF000000)
 val Paper = Color(0xFFF4F1EC)
 val Muted = Color(0xFFA8A29A)
 val Amber = Color(0xFFF2A65A)

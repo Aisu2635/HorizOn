@@ -52,6 +52,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -66,12 +68,18 @@ import dev.horizon.device.BatteryStatus
 import dev.horizon.device.batteryStatus
 import dev.horizon.device.hasBluetoothPermission
 import dev.horizon.device.headsetStatus
+import dev.horizon.device.openOtherApp
 import dev.horizon.media.MediaRepository
 import dev.horizon.media.NowPlaying
+import dev.horizon.nav.NavRepository
+import dev.horizon.nav.NavState
 import dev.horizon.settings.ClockFace
 import dev.horizon.settings.SettingsRepository
 import dev.horizon.ui.faces.ClockFaceContent
 import dev.horizon.ui.faces.ClockTime
+import dev.horizon.ui.nav.DirectionsPill
+import dev.horizon.ui.nav.DirectionsPrompt
+import dev.horizon.ui.nav.NavPanel
 import dev.horizon.ui.theme.Amber
 import dev.horizon.ui.theme.Muted
 import dev.horizon.ui.theme.Paper
@@ -84,6 +92,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
+import java.util.Date
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
@@ -96,10 +105,24 @@ private const val SWIPE_THRESHOLD_PX = 120f
 /** How long the "headphones connected" banner stays up. */
 private const val HEADSET_BANNER_MS = 4_000L
 
+/** Which arrangement the standby screen shows. */
+private enum class DeskLayout {
+    /** Clock (or directions) on the left, player card on the right. */
+    Split,
+
+    /** Navigating with nothing playing: directions on the left, the clock on the right. */
+    Directions,
+
+    /** The full-screen clock. */
+    Clock,
+}
+
 /**
  * The standby screen.
  * - Music available (or access not yet granted): clock on the left, player card on the right.
- * - Otherwise, or after a swipe: the full-screen clock, with a Now Playing pill when music is available.
+ *   While Google Maps is navigating (and directions are on), directions replace the clock.
+ * - Navigating with no music: directions on the left, the clock on the right.
+ * - Otherwise, or after a swipe: the full-screen clock, with Now Playing and directions pills.
  * Tap anywhere for the controls (clock style and Close); swipe sideways to switch layouts.
  */
 @Composable
@@ -123,6 +146,15 @@ fun DeskScreen(onClose: () -> Unit) {
     }
     val nowPlaying by remember(hasAccess) { if (hasAccess) media.nowPlaying else flowOf(null) }
         .collectAsStateWithLifecycle(initialValue = null)
+
+    // Directions mirrored from Google Maps; the listener only fills this while the setting is on.
+    val showNavigation by settings.showNavigation.collectAsStateWithLifecycle(initialValue = false)
+    val navState by NavRepository.state.collectAsStateWithLifecycle()
+    val nav = navState.takeIf { hasAccess && showNavigation }
+    // Offer directions once when Maps is navigating and the user hasn't chosen yet.
+    val mapsNavigating by NavRepository.navigating.collectAsStateWithLifecycle()
+    val navPromptDismissed by settings.navPromptDismissed.collectAsStateWithLifecycle(initialValue = true)
+    val showNavPrompt = hasAccess && mapsNavigating && !showNavigation && !navPromptDismissed
 
     // Bluetooth headphones: detected without permission; name and battery need "Nearby devices".
     var bluetoothGranted by remember { mutableStateOf(context.hasBluetoothPermission()) }
@@ -174,16 +206,25 @@ fun DeskScreen(onClose: () -> Unit) {
     val locale = LocalLocale.current.platformLocale
     val time = ClockTime(now.hour, now.minute, DateFormat.is24HourFormat(context))
     val date = formatClockDate(now.toLocalDate(), locale)
+    // The clock shrinks into the date line while the directions take its place.
+    val dateAndTime = "$date • ${DateFormat.getTimeFormat(context).format(Date.from(now.toInstant())).uppercase(locale)}"
 
     val epochMinute = TimeUnit.SECONDS.toMinutes(now.toEpochSecond())
     val (shiftX, shiftY) = burnInShift(epochMinute)
 
     val showAccessCard = !hasAccess && promptDismissed == false
     val cardAvailable = nowPlaying != null || showAccessCard
-    // The user's swipe choice; reset whenever music shows up again so the player appears.
+    // The user's swipe choice; reset whenever music or directions show up so they appear.
     var preferFullClock by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(nowPlaying != null) { if (nowPlaying != null) preferFullClock = false }
-    val split = cardAvailable && !preferFullClock
+    LaunchedEffect(nav != null) { if (nav != null) preferFullClock = false }
+    val canSwitch = cardAvailable || nav != null
+    val layout = when {
+        preferFullClock -> DeskLayout.Clock
+        cardAvailable -> DeskLayout.Split
+        nav != null -> DeskLayout.Directions
+        else -> DeskLayout.Clock
+    }
 
     var controlsVisible by rememberSaveable { mutableStateOf(false) }
     // Bumped on every interaction with the controls, restarting the hide timer.
@@ -207,13 +248,13 @@ fun DeskScreen(onClose: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .pointerInput(cardAvailable) {
+            .pointerInput(canSwitch) {
                 var dragged = 0f
                 detectHorizontalDragGestures(
                     onDragStart = { dragged = 0f },
                     onHorizontalDrag = { _, amount -> dragged += amount },
                     onDragEnd = {
-                        if (cardAvailable && abs(dragged) > SWIPE_THRESHOLD_PX) preferFullClock = !preferFullClock
+                        if (canSwitch && abs(dragged) > SWIPE_THRESHOLD_PX) preferFullClock = !preferFullClock
                     },
                 )
             }
@@ -231,33 +272,85 @@ fun DeskScreen(onClose: () -> Unit) {
         ) {
             // Wait for the stored face before drawing, so the wrong one never flashes up.
             val currentFace = face ?: return@Box
+            // Sits in the layout under the clock, so it never covers the music card.
+            val prompt: @Composable () -> Unit = {
+                AnimatedVisibility(visible = showNavPrompt, enter = fadeIn(), exit = fadeOut()) {
+                    DirectionsPrompt(
+                        onShow = { scope.launch { settings.setShowNavigation(true) } },
+                        onNotNow = { scope.launch { settings.setNavPromptDismissed(true) } },
+                        modifier = Modifier.widthIn(max = 460.dp).padding(bottom = 16.dp),
+                    )
+                }
+            }
+            val directions: (@Composable (NavState, String) -> Unit) = { current, header ->
+                NavPanel(
+                    nav = current,
+                    header = header,
+                    battery = battery,
+                    headsetSlot = headsetSlot,
+                    onTap = { controlsVisible = !controlsVisible },
+                    onOpenApp = { activity?.openOtherApp(current.packageName, current.openIntent) },
+                )
+            }
             AnimatedContent(
-                targetState = split,
+                targetState = layout,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
                 label = "layout",
-            ) { isSplit ->
-                if (isSplit) {
-                    SplitLayout(currentFace, time, date, battery, headsetSlot) {
-                        val playing = nowPlaying
-                        if (playing != null) {
-                            PlayerCard(
-                                nowPlaying = playing,
-                                onPlayPause = media::playPause,
-                                onPrevious = media::skipPrevious,
-                                onNext = media::skipNext,
-                                onTap = { controlsVisible = !controlsVisible },
-                                onOpenApp = { activity?.let(media::openPlayerApp) },
-                                onSeek = media::seekTo,
-                            )
-                        } else {
-                            MusicAccessCard(
-                                onAllow = ::openAccessSettings,
-                                onNotNow = { scope.launch { settings.setMusicPromptDismissed(true) } },
-                            )
+            ) { target ->
+                when (target) {
+                    DeskLayout.Split -> {
+                        SplitLayout(currentFace, time, date, battery, nav, { directions(it, dateAndTime) }, prompt, headsetSlot) {
+                            val playing = nowPlaying
+                            if (playing != null) {
+                                PlayerCard(
+                                    nowPlaying = playing,
+                                    onPlayPause = media::playPause,
+                                    onPrevious = media::skipPrevious,
+                                    onNext = media::skipNext,
+                                    onTap = { controlsVisible = !controlsVisible },
+                                    onOpenApp = { activity?.let(media::openPlayerApp) },
+                                    onSeek = media::seekTo,
+                                )
+                            } else {
+                                MusicAccessCard(
+                                    onAllow = ::openAccessSettings,
+                                    onNotNow = { scope.launch { settings.setMusicPromptDismissed(true) } },
+                                )
+                            }
                         }
                     }
-                } else {
-                    FullLayout(currentFace, time, date, battery, nowPlaying, headsetSlot) { preferFullClock = false }
+                    DeskLayout.Directions -> {
+                        // Keep showing the last directions while the layout fades out.
+                        val current = nav ?: navState
+                        // Directions where the clock usually is, and the clock where the music would be.
+                        Row(Modifier.fillMaxSize()) {
+                            Box(
+                                Modifier
+                                    .weight(1.1f)
+                                    .fillMaxHeight()
+                                    .padding(start = 40.dp, end = 12.dp, top = 28.dp, bottom = 28.dp),
+                            ) {
+                                if (current != null) directions(current, date)
+                            }
+                            Crossfade(
+                                currentFace,
+                                label = "clockFace",
+                                modifier = Modifier
+                                    .weight(0.9f)
+                                    .fillMaxHeight()
+                                    .padding(top = 20.dp, bottom = 20.dp, end = 24.dp),
+                            ) {
+                                ClockFaceContent(it, time)
+                            }
+                        }
+                    }
+                    DeskLayout.Clock -> {
+                        FullLayout(
+                            currentFace, time, date, battery, nowPlaying, nav, prompt, headsetSlot,
+                            onShowPlayer = { preferFullClock = false },
+                            onShowDirections = { preferFullClock = false },
+                        )
+                    }
                 }
             }
         }
@@ -295,6 +388,12 @@ fun DeskScreen(onClose: () -> Unit) {
                 } else {
                     null
                 },
+                // Directions need notification access, like music.
+                directionsOn = if (hasAccess) showNavigation else null,
+                onToggleDirections = {
+                    controlsTouch++
+                    scope.launch { settings.setShowNavigation(!showNavigation) }
+                },
                 onClose = onClose,
             )
         }
@@ -307,24 +406,39 @@ private fun SplitLayout(
     time: ClockTime,
     date: String,
     battery: BatteryStatus?,
+    nav: NavState?,
+    directions: @Composable (NavState) -> Unit,
+    prompt: @Composable () -> Unit,
     headsetSlot: @Composable () -> Unit,
     card: @Composable () -> Unit,
 ) {
     Row(Modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .weight(1.1f)
-                .fillMaxHeight()
-                .padding(start = 40.dp, end = 12.dp, top = 28.dp, bottom = 28.dp),
-        ) {
-            DateLabel(date)
-            Crossfade(face, label = "clockFace", modifier = Modifier.weight(1f)) {
-                ClockFaceContent(it, time)
+        if (nav != null) {
+            Box(
+                Modifier
+                    .weight(1.1f)
+                    .fillMaxHeight()
+                    .padding(start = 40.dp, end = 12.dp, top = 28.dp, bottom = 28.dp),
+            ) {
+                directions(nav)
             }
-            // Headphones above the phone battery; the column is too narrow to fit both on one line.
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                headsetSlot()
-                if (battery != null) BatteryLabel(battery, spelledOut = true)
+        } else {
+            Column(
+                Modifier
+                    .weight(1.1f)
+                    .fillMaxHeight()
+                    .padding(start = 40.dp, end = 12.dp, top = 28.dp, bottom = 28.dp),
+            ) {
+                DateLabel(date)
+                Crossfade(face, label = "clockFace", modifier = Modifier.weight(1f)) {
+                    ClockFaceContent(it, time)
+                }
+                prompt()
+                // Headphones above the phone battery; the column is too narrow to fit both on one line.
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    headsetSlot()
+                    if (battery != null) BatteryLabel(battery, spelledOut = true)
+                }
             }
         }
         Box(
@@ -345,23 +459,34 @@ private fun FullLayout(
     date: String,
     battery: BatteryStatus?,
     nowPlaying: NowPlaying?,
+    nav: NavState?,
+    prompt: @Composable () -> Unit,
     headsetSlot: @Composable () -> Unit,
     onShowPlayer: () -> Unit,
+    onShowDirections: () -> Unit,
 ) {
+    val hasPills = nowPlaying != null || nav != null
     Column(Modifier.fillMaxSize()) {
         StatusRow(date, battery, accessory = headsetSlot)
         Crossfade(face, label = "clockFace", modifier = Modifier.weight(1f)) {
-            ClockFaceContent(it, time, Modifier.padding(bottom = if (nowPlaying != null) 8.dp else 40.dp))
+            ClockFaceContent(it, time, Modifier.padding(bottom = if (hasPills) 8.dp else 40.dp))
         }
-        if (nowPlaying != null) {
-            NowPlayingPill(
-                nowPlaying = nowPlaying,
-                onClick = onShowPlayer,
-                modifier = Modifier
+        Box(Modifier.align(Alignment.CenterHorizontally)) { prompt() }
+        if (hasPills) {
+            Row(
+                Modifier
                     .align(Alignment.CenterHorizontally)
-                    .widthIn(max = 420.dp)
+                    .padding(horizontal = 24.dp)
                     .padding(bottom = 24.dp),
-            )
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (nav != null) {
+                    DirectionsPill(nav, onClick = onShowDirections, modifier = Modifier.widthIn(max = 360.dp))
+                }
+                if (nowPlaying != null) {
+                    NowPlayingPill(nowPlaying, onClick = onShowPlayer, modifier = Modifier.widthIn(max = 420.dp))
+                }
+            }
         }
     }
 }
@@ -371,6 +496,8 @@ private fun ControlsBar(
     selected: ClockFace,
     onSelect: (ClockFace) -> Unit,
     onShowMusic: (() -> Unit)?,
+    directionsOn: Boolean?,
+    onToggleDirections: () -> Unit,
     onClose: () -> Unit,
 ) {
     val pill = RoundedCornerShape(50)
@@ -399,6 +526,21 @@ private fun ControlsBar(
         if (onShowMusic != null) {
             TextButton(onClick = onShowMusic, shape = pill, modifier = Modifier.background(PillSurface, pill)) {
                 Text("♪  Music", color = Paper, fontSize = 15.sp)
+            }
+        }
+        if (directionsOn != null) {
+            TextButton(
+                onClick = onToggleDirections,
+                shape = pill,
+                modifier = Modifier
+                    .background(PillSurface, pill)
+                    .semantics { stateDescription = if (directionsOn) "On" else "Off" },
+            ) {
+                Text(
+                    if (directionsOn) "➤  Directions on" else "➤  Directions off",
+                    color = if (directionsOn) Amber else Muted,
+                    fontSize = 15.sp,
+                )
             }
         }
         TextButton(onClick = onClose, shape = pill, modifier = Modifier.background(PillSurface, pill)) {

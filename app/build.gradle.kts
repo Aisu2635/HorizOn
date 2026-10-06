@@ -70,6 +70,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
 
     testImplementation(libs.junit)
+    // Android's org.json is a stub in JVM unit tests; this real one reads the nav fixtures.
+    testImplementation(libs.json)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

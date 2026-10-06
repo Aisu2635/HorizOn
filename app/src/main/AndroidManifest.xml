@@ -13,6 +13,9 @@
         <intent>
             <action android:name="android.media.browse.MediaBrowserService" />
         </intent>
+        <!-- Name of the navigation app ("via Google Maps") and opening it from the directions panel. -->
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="com.google.android.apps.navlite" />
     </queries>
 
     <application

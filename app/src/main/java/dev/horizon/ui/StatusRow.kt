@@ -50,7 +50,7 @@ fun StatusRow(
         DateLabel(date)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             accessory()
-            if (battery != null) BatteryLabel(battery)
+            if (battery != null) BatteryLabel(battery, spelledOut = true)
         }
     }
 }
