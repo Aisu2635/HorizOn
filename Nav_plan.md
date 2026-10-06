@@ -150,7 +150,7 @@ On the nav pill / empty state, a "Open Google Maps" action:
 2. **N1: Data. Done.** `NavState`, `NavParser` + tests, `NavRepository`, listener overrides with the package allowlist, `showNavigation` setting.
 3. **N2: UI. Done** (tested on device 2026-10-06, T1–T11 pass; turn changes while moving not yet seen). The on/off switch lives in the tap controls ("Directions on/off") until there is a settings screen. `NavPanel`, maneuver icon tinting + fallbacks, layout rules in `DeskScreen`, directions pill, tap-to-open Maps.
 4. **N3: Polish. Done, not yet tried on a phone.** Debug `DemoNavActivity` (a made-up route: `adb shell am start -n dev.horizon/.debug.DemoNavActivity`), the one-time prompt, a rise-in transition for new maneuvers and a gliding trip progress bar. Burn-in shift and the live-region announcement already came with N2. `RoadBackdrop` deferred. After the on-device demo test: turns no longer overlap mid-change, our fallback arrows are drawn shapes (U-turns swing right in left-hand-traffic countries such as India), short street names wrap as a whole, and the prompt became a card under the clock instead of an overlay.
-5. **N4: Docs and release.** README privacy text, Plan.md updates, new screenshot `docs/screens/nav.svg`, ship in the next minor version.
+5. **N4: Docs and release.** Done: README privacy text and feature line, `docs/screens/nav.svg` in the README. Left: version bump and release, when the maintainer decides.
 
 ## 7. Risks
 

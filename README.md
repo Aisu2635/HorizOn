@@ -4,9 +4,9 @@ An open-source Android app that turns a charging phone on its side into a calm d
 
 > Early development (v0.1 in progress). See [Plan.md](Plan.md) for the roadmap.
 
-| Clock + music | Full clock | Night mode |
-|---|---|---|
-| ![Split view](docs/screens/split.svg) | ![Full clock](docs/screens/clock.svg) | ![Night mode](docs/screens/night.svg) |
+| Clock + music | Directions + music | Full clock | Night mode |
+|---|---|---|---|
+| ![Split view](docs/screens/split.svg) | ![Directions](docs/screens/nav.svg) | ![Full clock](docs/screens/clock.svg) | ![Night mode](docs/screens/night.svg) |
 
 ## Features (planned for v0.1)
 
