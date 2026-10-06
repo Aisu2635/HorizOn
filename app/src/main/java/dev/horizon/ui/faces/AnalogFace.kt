@@ -73,7 +73,7 @@ private fun DrawScope.drawHand(degrees: Float, length: Float, width: Float) {
     }
 }
 
-@Preview(widthDp = 844, heightDp = 390, showBackground = true, backgroundColor = 0xFF070708)
+@Preview(widthDp = 844, heightDp = 390, showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun AnalogFacePreview() {
     HorizOnTheme { AnalogFace(ClockTime(10, 42, is24Hour = false)) }

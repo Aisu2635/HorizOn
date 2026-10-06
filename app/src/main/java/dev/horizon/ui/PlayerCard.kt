@@ -89,7 +89,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 
-private val CardBase = Color(0xFF141012)
+// Fades to pure black (pixels off on OLED); only the art-tinted corner lights up.
+private val CardBase = Color(0xFF000000)
 private val NeutralTint = Color(0xFF2A1A10)
 private val SecondaryText = Color(0xFFB9B2A9)
 private val TrackColor = Color.White.copy(alpha = 0.14f)

@@ -47,7 +47,7 @@ fun DigitalFace(time: ClockTime, modifier: Modifier = Modifier) {
     }
 }
 
-@Preview(widthDp = 844, heightDp = 390, showBackground = true, backgroundColor = 0xFF070708)
+@Preview(widthDp = 844, heightDp = 390, showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun DigitalFacePreview() {
     HorizOnTheme { DigitalFace(ClockTime(10, 42, is24Hour = false)) }

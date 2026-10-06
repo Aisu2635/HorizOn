@@ -2,12 +2,12 @@ package dev.horizon.ui.nav
 
 import android.content.Context
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +53,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
@@ -108,11 +110,13 @@ fun NavPanel(
             Spacer(Modifier.weight(1f))
             AnimatedContent(
                 targetState = nav.info,
-                // The distance ticks down in place; a new maneuver rises in as the old one leaves.
+                // The distance ticks down in place. A new maneuver waits for the old one to fade out,
+                // then rises in, so the two never overlap; nothing is clipped while sizes change.
                 contentKey = { "${it.instruction}|${it.road}" },
                 transitionSpec = {
-                    (slideInVertically(tween(MANEUVER_MS)) { it / 4 } + fadeIn(tween(MANEUVER_MS))) togetherWith
-                        (slideOutVertically(tween(MANEUVER_MS)) { -it / 4 } + fadeOut(tween(MANEUVER_MS / 2)))
+                    val enter = tween<Float>(MANEUVER_MS, delayMillis = MANEUVER_MS / 2)
+                    (fadeIn(enter) + slideInVertically(tween(MANEUVER_MS, delayMillis = MANEUVER_MS / 2)) { it / 6 }) togetherWith
+                        fadeOut(tween(MANEUVER_MS / 2)) using SizeTransform(clip = false)
                 },
                 label = "maneuver",
             ) { info ->
@@ -155,9 +159,11 @@ private fun Maneuver(nav: NavState, info: NavInfo, iconSize: Dp, distanceSize: D
                     withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = Paper)) { append(info.instruction) }
                     if (info.road != null) {
                         append(" ")
-                        withStyle(SpanStyle(color = Muted)) { append(info.road) }
+                        withStyle(SpanStyle(color = Muted)) { append(keepTogether(info.road)) }
                     }
                 },
+                // Even out line lengths where Android supports it (13+).
+                style = LocalTextStyle.current.copy(lineBreak = LineBreak.Heading),
                 // With no distance (e.g. "Head north") the instruction is the headline, so it gets more room.
                 fontSize = if (info.distanceToTurn == null) 34.sp else 24.sp,
                 lineHeight = if (info.distanceToTurn == null) 40.sp else 30.sp,
@@ -170,7 +176,7 @@ private fun Maneuver(nav: NavState, info: NavInfo, iconSize: Dp, distanceSize: D
     }
 }
 
-/** Maps' own arrow (white on transparent), tinted; a simple glyph when there is none. */
+/** Maps' own arrow (white on transparent), tinted; our drawn arrow when there is none. */
 @Composable
 private fun ManeuverIcon(nav: NavState, info: NavInfo, modifier: Modifier) {
     val icon = nav.maneuverIcon
@@ -178,22 +184,22 @@ private fun ManeuverIcon(nav: NavState, info: NavInfo, modifier: Modifier) {
         val image = remember(icon) { icon.asImageBitmap() }
         Image(image, contentDescription = null, colorFilter = ColorFilter.tint(Paper), modifier = modifier)
     } else {
-        Box(modifier, contentAlignment = Alignment.Center) {
-            Text(fallbackArrow(info.instruction), color = Paper, fontSize = 56.sp)
-        }
+        val country = LocalLocale.current.platformLocale.country
+        val arrow = remember(info.instruction, country) { maneuverArrow(info.instruction, drivesOnLeft(country)) }
+        // Inset a little, to match the padding in Maps' own arrow images.
+        ManeuverArrowIcon(arrow, Paper, modifier.padding(6.dp))
     }
 }
 
-/** A rough arrow from an English instruction; straight ahead for anything else. */
-internal fun fallbackArrow(instruction: String): String {
-    val text = instruction.lowercase()
-    return when {
-        "u-turn" in text -> "↶"
-        "left" in text -> "↰"
-        "right" in text -> "↱"
-        else -> "↑"
-    }
-}
+/** Longest road name kept on one line; longer ones may still wrap. */
+private const val ROAD_KEEP_TOGETHER = 28
+
+/**
+ * Joins a short road ("toward Main St") with no-break spaces, so it wraps as a whole instead of
+ * leaving "St" alone on the last line.
+ */
+internal fun keepTogether(road: String): String =
+    if (road.length <= ROAD_KEEP_TOGETHER) road.replace(' ', '\u00A0') else road
 
 /** ETA and distance left, over a thin trip progress bar. Hidden until the route is known. */
 @Composable
@@ -243,43 +249,42 @@ private fun TripProgress(target: Float) {
 
 /**
  * Offered once, when Google Maps is navigating but directions are off. Knowing that Maps is
- * navigating needs no notification text, so this can show before the user opts in.
+ * navigating needs no notification text, so this can show before the user opts in. A small card
+ * that sits in the layout (under the clock), so it never covers the music card.
  */
 @Composable
 fun DirectionsPrompt(onShow: () -> Unit, onNotNow: () -> Unit, modifier: Modifier = Modifier) {
     val pill = RoundedCornerShape(50)
-    Row(
+    Column(
         modifier
-            .clip(pill)
+            .clip(RoundedCornerShape(20.dp))
             .background(PillSurface)
-            .padding(start = 22.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(start = 18.dp, end = 10.dp, top = 14.dp, bottom = 10.dp),
     ) {
-        Text("➤", color = Amber, fontSize = 16.sp)
-        Text(
-            "Google Maps is navigating. Show directions here?",
-            color = Paper,
-            fontSize = 15.sp,
-            maxLines = 2,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        Box(
-            Modifier
-                .clip(pill)
-                .background(Paper)
-                .clickable(role = Role.Button, onClick = onShow)
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-        ) {
-            Text("Show", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ManeuverArrowIcon(ManeuverArrow.Straight, Amber, Modifier.size(18.dp))
+            Text("Show Google Maps directions here?", color = Paper, fontSize = 15.sp, maxLines = 2)
         }
-        Box(
-            Modifier
-                .clip(pill)
-                .clickable(role = Role.Button, onClick = onNotNow)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-        ) {
-            Text("Not now", color = Muted, fontSize = 15.sp)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.weight(1f))
+            Box(
+                Modifier
+                    .clip(pill)
+                    .clickable(role = Role.Button, onClick = onNotNow)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text("Not now", color = Muted, fontSize = 14.sp)
+            }
+            Box(
+                Modifier
+                    .clip(pill)
+                    .background(Paper)
+                    .clickable(role = Role.Button, onClick = onShow)
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+            ) {
+                Text("Show", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

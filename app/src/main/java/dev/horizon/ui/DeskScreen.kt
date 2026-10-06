@@ -272,6 +272,16 @@ fun DeskScreen(onClose: () -> Unit) {
         ) {
             // Wait for the stored face before drawing, so the wrong one never flashes up.
             val currentFace = face ?: return@Box
+            // Sits in the layout under the clock, so it never covers the music card.
+            val prompt: @Composable () -> Unit = {
+                AnimatedVisibility(visible = showNavPrompt, enter = fadeIn(), exit = fadeOut()) {
+                    DirectionsPrompt(
+                        onShow = { scope.launch { settings.setShowNavigation(true) } },
+                        onNotNow = { scope.launch { settings.setNavPromptDismissed(true) } },
+                        modifier = Modifier.widthIn(max = 460.dp).padding(bottom = 16.dp),
+                    )
+                }
+            }
             val directions: (@Composable (NavState, String) -> Unit) = { current, header ->
                 NavPanel(
                     nav = current,
@@ -289,7 +299,7 @@ fun DeskScreen(onClose: () -> Unit) {
             ) { target ->
                 when (target) {
                     DeskLayout.Split -> {
-                        SplitLayout(currentFace, time, date, battery, nav, { directions(it, dateAndTime) }, headsetSlot) {
+                        SplitLayout(currentFace, time, date, battery, nav, { directions(it, dateAndTime) }, prompt, headsetSlot) {
                             val playing = nowPlaying
                             if (playing != null) {
                                 PlayerCard(
@@ -336,7 +346,7 @@ fun DeskScreen(onClose: () -> Unit) {
                     }
                     DeskLayout.Clock -> {
                         FullLayout(
-                            currentFace, time, date, battery, nowPlaying, nav, headsetSlot,
+                            currentFace, time, date, battery, nowPlaying, nav, prompt, headsetSlot,
                             onShowPlayer = { preferFullClock = false },
                             onShowDirections = { preferFullClock = false },
                         )
@@ -353,19 +363,6 @@ fun DeskScreen(onClose: () -> Unit) {
                 .padding(top = 20.dp),
         ) {
             headset?.let { HeadsetConnectedBanner(it) }
-        }
-        AnimatedVisibility(
-            visible = showNavPrompt && !bannerVisible,
-            enter = fadeIn() + slideInVertically { -it },
-            exit = fadeOut() + slideOutVertically { -it },
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 20.dp, start = 24.dp, end = 24.dp),
-        ) {
-            DirectionsPrompt(
-                onShow = { scope.launch { settings.setShowNavigation(true) } },
-                onNotNow = { scope.launch { settings.setNavPromptDismissed(true) } },
-            )
         }
         AnimatedVisibility(
             visible = controlsVisible,
@@ -411,6 +408,7 @@ private fun SplitLayout(
     battery: BatteryStatus?,
     nav: NavState?,
     directions: @Composable (NavState) -> Unit,
+    prompt: @Composable () -> Unit,
     headsetSlot: @Composable () -> Unit,
     card: @Composable () -> Unit,
 ) {
@@ -435,6 +433,7 @@ private fun SplitLayout(
                 Crossfade(face, label = "clockFace", modifier = Modifier.weight(1f)) {
                     ClockFaceContent(it, time)
                 }
+                prompt()
                 // Headphones above the phone battery; the column is too narrow to fit both on one line.
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     headsetSlot()
@@ -461,6 +460,7 @@ private fun FullLayout(
     battery: BatteryStatus?,
     nowPlaying: NowPlaying?,
     nav: NavState?,
+    prompt: @Composable () -> Unit,
     headsetSlot: @Composable () -> Unit,
     onShowPlayer: () -> Unit,
     onShowDirections: () -> Unit,
@@ -471,6 +471,7 @@ private fun FullLayout(
         Crossfade(face, label = "clockFace", modifier = Modifier.weight(1f)) {
             ClockFaceContent(it, time, Modifier.padding(bottom = if (hasPills) 8.dp else 40.dp))
         }
+        Box(Modifier.align(Alignment.CenterHorizontally)) { prompt() }
         if (hasPills) {
             Row(
                 Modifier

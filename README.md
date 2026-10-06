@@ -14,7 +14,7 @@ An open-source Android app that turns a charging phone on its side into a calm d
 - Now playing from any music app that publishes a media session, with play/pause, previous and next
 - Player background tinted from the album art
 - Starts automatically while charging (Android screen saver), or launch it from the app icon
-- Burn-in protection
+- Burn-in protection, and a pure black background so OLED screens keep unused pixels off
 - Optional turn-by-turn directions from Google Maps next to the music (tap the screen, then **Directions**)
 
 Night mode, more clock faces and alarm display are planned for v0.2.

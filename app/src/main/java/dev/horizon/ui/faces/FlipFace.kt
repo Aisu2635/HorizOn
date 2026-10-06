@@ -223,7 +223,7 @@ private fun CardHalf(
     }
 }
 
-@Preview(widthDp = 844, heightDp = 390, showBackground = true, backgroundColor = 0xFF070708)
+@Preview(widthDp = 844, heightDp = 390, showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun FlipFacePreview() {
     HorizOnTheme { FlipFace(ClockTime(10, 42, is24Hour = false)) }
