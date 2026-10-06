@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="844" height="390" viewBox="0 0 844 390">
+<defs><radialGradient id="art" cx="0.3" cy="0.3" r="0.9"><stop offset="0" stop-color="#F2A65A"/><stop offset="0.45" stop-color="#C2542D"/><stop offset="1" stop-color="#3B1A12"/></radialGradient></defs>
+<rect width="844" height="390" rx="36" fill="#070708"/>
+<text x="40" y="52" font-family="Manrope,'SF Pro Text','Segoe UI',system-ui,sans-serif" font-size="15" font-weight="600" letter-spacing="1.2" fill="#A8A29A">TUESDAY, OCT 6</text>
+<rect x="754" y="41" width="18" height="10.5" rx="2.5" fill="none" stroke="#7FD18B" stroke-width="1.5"/>
+<rect x="756" y="43" width="12" height="6.5" rx="1" fill="#7FD18B"/>
+<text x="804" y="52" font-family="Manrope,'SF Pro Text','Segoe UI',system-ui,sans-serif" font-size="15" font-weight="600" fill="#A8A29A" text-anchor="end">82%</text>
+<text x="422" y="265" font-family="'Bricolage Grotesque','SF Pro Display','Segoe UI',system-ui,sans-serif" font-size="220" font-weight="200" letter-spacing="-10" fill="#F4F1EC" text-anchor="middle">10<tspan fill="#F2A65A">:</tspan>42</text>
+<rect x="282" y="310" width="280" height="52" rx="26" fill="#1A1715"/>
+<rect x="292" y="320" width="32" height="32" rx="8" fill="url(#art)"/>
+<text x="336" y="341" font-family="Manrope,'SF Pro Text','Segoe UI',system-ui,sans-serif" font-size="14" font-weight="600" fill="#F4F1EC">Song Title</text>
+<text x="420" y="341" font-family="Manrope,'SF Pro Text','Segoe UI',system-ui,sans-serif" font-size="14" fill="#A8A29A">Artist Name</text>
+<g fill="none" stroke="#F4F1EC" stroke-width="2" stroke-linecap="round"><path d="M534 328h6v6M528 346h-6v-6M540 328l-7 7M522 346l7-7"/></g>
+</svg>
