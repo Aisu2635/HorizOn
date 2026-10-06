@@ -69,13 +69,15 @@ private object DemoRoute {
     private val tick = object : Runnable {
         override fun run() {
             if (travelled >= routeMeters) {
+                // Keep the arrival time, as Maps does, so the trip row doesn't change while the last turn fades out.
+                val last = infoAt(routeMeters - 1)
                 post(
                     NavInfo(
                         distanceToTurn = null,
                         instruction = "Arrive at destination",
                         road = null,
-                        arrival = null,
-                        etaTime = null,
+                        arrival = last.arrival,
+                        etaTime = last.etaTime,
                         remainingMeters = 0,
                         tripProgress = 1f,
                         imperial = false,
