@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Name and battery level of connected Bluetooth headphones ("Nearby devices" on Android 12+). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+
     <!-- Lets us show the name of the music app (e.g. "Spotify") next to Now Playing. -->
     <queries>
         <intent>

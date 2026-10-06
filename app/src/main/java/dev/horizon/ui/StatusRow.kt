@@ -34,7 +34,12 @@ private val LabelStyle = TextStyle(
 
 /** Date on the left, battery on the right; used above the full-screen clock faces. */
 @Composable
-fun StatusRow(date: String, battery: BatteryStatus?, modifier: Modifier = Modifier) {
+fun StatusRow(
+    date: String,
+    battery: BatteryStatus?,
+    modifier: Modifier = Modifier,
+    accessory: @Composable () -> Unit = {},
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -43,7 +48,10 @@ fun StatusRow(date: String, battery: BatteryStatus?, modifier: Modifier = Modifi
         verticalAlignment = Alignment.CenterVertically,
     ) {
         DateLabel(date)
-        if (battery != null) BatteryLabel(battery)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            accessory()
+            if (battery != null) BatteryLabel(battery)
+        }
     }
 }
 

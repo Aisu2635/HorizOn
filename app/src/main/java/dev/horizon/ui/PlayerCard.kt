@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -43,7 +46,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -88,23 +94,35 @@ fun Modifier.cardBackground(tint: Color): Modifier = clip(RoundedCornerShape(28.
     )
 }
 
-/** The Now Playing card: art, title, artist, progress and transport controls, tinted from the art. */
+/**
+ * The Now Playing card: art, title, artist, progress and transport controls, tinted from the art.
+ * Double-tap the card to open the music app; a single tap behaves like a tap anywhere else.
+ */
 @Composable
 fun PlayerCard(
     nowPlaying: NowPlaying,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onTap: () -> Unit,
+    onOpenApp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = rememberArtColors(nowPlaying.art)
     val tint by animateColorAsState(colors.tint, tween(600), label = "tint")
     val accent by animateColorAsState(colors.accent, tween(600), label = "accent")
+    val appName = nowPlaying.appLabel ?: "music app"
 
     BoxWithConstraints(
         modifier
             .fillMaxSize()
             .cardBackground(tint)
+            .pointerInput(onTap, onOpenApp) {
+                detectTapGestures(onTap = { onTap() }, onDoubleTap = { onOpenApp() })
+            }
+            .semantics {
+                customActions = listOf(CustomAccessibilityAction("Open $appName") { onOpenApp(); true })
+            }
             .padding(22.dp),
     ) {
         val artSize = min(116.dp, maxHeight * 0.38f)
@@ -113,9 +131,10 @@ fun PlayerCard(
                 AlbumArt(nowPlaying.art, artSize, accent)
                 Spacer(Modifier.width(18.dp))
                 Column(Modifier.weight(1f)) {
-                    val source = nowPlaying.appLabel?.uppercase()
+                    // The app name alone ("YOUTUBE MUSIC") fits the narrow column better than "NOW PLAYING · …".
+                    val source = nowPlaying.appLabel?.uppercase() ?: "NOW PLAYING"
                     Text(
-                        text = if (source != null) "NOW PLAYING · $source" else "NOW PLAYING",
+                        text = source,
                         color = accent,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -341,49 +360,55 @@ fun NowPlayingPill(nowPlaying: NowPlaying, onClick: () -> Unit, modifier: Modifi
 /** Explains and requests notification access, which is needed to see other apps' music. */
 @Composable
 fun MusicAccessCard(onAllow: () -> Unit, onNotNow: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
+    // Centered when it fits; scrolls on short screens or with large text instead of clipping the buttons.
+    Box(
         modifier
             .fillMaxSize()
-            .cardBackground(NeutralTint)
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
+            .cardBackground(NeutralTint),
+        contentAlignment = Alignment.CenterStart,
     ) {
-        Text("SHOW WHAT'S PLAYING", color = Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.1.em)
-        Spacer(Modifier.height(10.dp))
-        Text("See your music here", color = Paper, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Allow notification access so HorizOn can show and control what Spotify, YouTube Music " +
-                "and other apps are playing. Your notifications are never read or stored.",
-            color = SecondaryText,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "If Android says the setting is restricted: App info → ⋮ → Allow restricted settings.",
-            color = Muted,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-        )
-        Spacer(Modifier.height(18.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Paper)
-                    .clickable(role = Role.Button, onClick = onAllow)
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-            ) {
-                Text("Allow access", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .clickable(role = Role.Button, onClick = onNotNow)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Text("Not now", color = Muted, fontSize = 15.sp)
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+        ) {
+            Text("SHOW WHAT'S PLAYING", color = Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.1.em)
+            Spacer(Modifier.height(8.dp))
+            Text("See your music here", color = Paper, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Allow notification access to show and control what Spotify, YouTube Music " +
+                    "and other apps are playing. Notifications are never read or stored.",
+                color = SecondaryText,
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "If Android says the setting is restricted: App info → ⋮ → Allow restricted settings.",
+                color = Muted,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Paper)
+                        .clickable(role = Role.Button, onClick = onAllow)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                ) {
+                    Text("Allow access", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .clickable(role = Role.Button, onClick = onNotNow)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text("Not now", color = Muted, fontSize = 15.sp)
+                }
             }
         }
     }

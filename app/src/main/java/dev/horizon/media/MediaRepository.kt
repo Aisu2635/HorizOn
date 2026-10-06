@@ -1,5 +1,9 @@
 package dev.horizon.media
 
+import android.app.Activity
+import android.app.ActivityOptions
+import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
@@ -12,6 +16,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -125,6 +130,45 @@ class MediaRepository(context: Context) {
 
     fun skipPrevious() {
         active?.transportControls?.skipToPrevious()
+    }
+
+    /**
+     * Opens the app that owns the shown session: its own "now playing" screen when it provides
+     * one, otherwise its launcher entry. Returns false if neither could be opened.
+     */
+    fun openPlayerApp(activity: Activity): Boolean {
+        val controller = active ?: return false
+        controller.sessionActivity?.let { pending ->
+            try {
+                pending.send(activity, 0, null, null, null, null, pendingIntentStartOptions())
+                return true
+            } catch (_: PendingIntent.CanceledException) {
+                // Fall through to the launcher intent.
+            }
+        }
+        val launch = activity.packageManager.getLaunchIntentForPackage(controller.packageName) ?: return false
+        return try {
+            activity.startActivity(launch)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        }
+    }
+
+    /**
+     * Android 14+ only lets another app's PendingIntent start an activity if the sender opts in.
+     * We are the visible app, so allow it.
+     */
+    private fun pendingIntentStartOptions(): Bundle? = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA -> ActivityOptions.makeBasic()
+            .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE)
+            .toBundle()
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> ActivityOptions.makeBasic()
+            .setPendingIntentBackgroundActivityStartMode(
+                @Suppress("DEPRECATION") ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,
+            )
+            .toBundle()
+        else -> null
     }
 
     private fun snapshot(controller: MediaController): SessionSnapshot {
