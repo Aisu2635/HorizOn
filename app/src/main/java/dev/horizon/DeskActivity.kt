@@ -1,49 +1,44 @@
 package dev.horizon
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import dev.horizon.ui.DeskScreen
 import dev.horizon.ui.theme.HorizOnTheme
 
-/** Single activity hosting the desk display. M1 turns this into the full clock. */
+/**
+ * Single activity hosting the standby screen. Opening the app goes straight here:
+ * full screen, screen kept on while visible. Leave via the Close control, Back or Home.
+ */
 class DeskActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Window flag, so it only applies while this activity is in front.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        hideSystemBars()
         setContent {
             HorizOnTheme {
-                Placeholder()
+                DeskScreen(onClose = ::finish)
             }
         }
     }
-}
 
-@Composable
-private fun Placeholder() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "HorizOn",
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
     }
-}
 
-@Preview(widthDp = 844, heightDp = 390)
-@Composable
-private fun PlaceholderPreview() {
-    HorizOnTheme { Placeholder() }
+    private fun hideSystemBars() {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            // An edge swipe only peeks the bars, so a stray touch can't exit.
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
 }

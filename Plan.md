@@ -40,12 +40,13 @@ Interactive mockups: https://claude.ai/artifact/4ZfPks3beKXBfjN2ZHSFdD
 
 ### v0.2
 - [ ] Night mode (ambient light sensor + schedule)
-- [ ] Multiple clock faces: minimal, flip, analog
+- [x] Multiple clock faces: digital, analog, retro flip (picked from the tap controls)
 - [ ] Accent color picker and "follow album art" option
 - [ ] Next alarm display
 
 ### Later ideas
-- [ ] Widgets: weather, calendar's next event
+- [ ] Widgets: calendar's next event
+- [ ] Weather style (deferred 2026-10-06: needs internet; keep the app internet-free for now)
 - [ ] Seek by tapping the progress bar
 - [ ] Per-charger profiles (desk vs. nightstand)
 - [ ] Home-screen widget / quick settings tile to launch
@@ -93,7 +94,7 @@ Interactive mockups: https://claude.ai/artifact/4ZfPks3beKXBfjN2ZHSFdD
 | Notification access (`BIND_NOTIFICATION_LISTENER_SERVICE`) | Required to read media sessions from other apps. We never read or store notification content. |
 | `BIND_DREAM_SERVICE` (on the service) | Lets the system run us as a screensaver |
 
-No internet permission in the MVP. This is a privacy point worth stating in the README.
+No internet permission. This is a privacy point worth stating in the README; features that would need the network (e.g. weather) are deferred.
 
 ## 7. Project structure
 
