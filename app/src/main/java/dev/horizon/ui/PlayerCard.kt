@@ -497,7 +497,8 @@ fun MusicAccessCard(onAllow: () -> Unit, onNotNow: () -> Unit, modifier: Modifie
             Spacer(Modifier.height(6.dp))
             Text(
                 "Allow notification access to show and control what Spotify, YouTube Music " +
-                    "and other apps are playing. Notifications are never read or stored.",
+                    "and other apps are playing. Notifications are never stored, and none are read " +
+                    "except Google Maps directions if you turn those on.",
                 color = SecondaryText,
                 fontSize = 14.sp,
                 lineHeight = 19.sp,

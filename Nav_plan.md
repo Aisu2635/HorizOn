@@ -1,6 +1,6 @@
 # HorizOn: Navigation plan
 
-> Status: N0 done, go (2026-10-06); N1 in progress. See [docs/nav/N0-report.md](docs/nav/N0-report.md). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
+> Status: N0 done, go (2026-10-06); N1 done; N2 in progress. See [docs/nav/N0-report.md](docs/nav/N0-report.md). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
 
 ## 1. Goal
 
@@ -147,8 +147,8 @@ On the nav pill / empty state, a "Open Google Maps" action:
 ## 6. Milestones
 
 1. **N0: Spike. Done:** go, see [N0 report](docs/nav/N0-report.md). Debug sample logger; capture real Maps notifications (2 locales, km/mi, Android 14 and 16). Confirm the fields in 3.1. Exit: fixtures committed, go/no-go on approach A.
-2. **N1: Data. In progress.** `NavState`, `NavParser` + tests, `NavRepository`, listener overrides with the package allowlist, `showNavigation` setting.
-3. **N2: UI.** `NavPanel`, maneuver icon tinting + fallbacks, layout rules in `DeskScreen`, directions pill, tap-to-open Maps.
+2. **N1: Data. Done.** `NavState`, `NavParser` + tests, `NavRepository`, listener overrides with the package allowlist, `showNavigation` setting.
+3. **N2: UI. In progress.** The on/off switch lives in the tap controls ("Directions on/off") until there is a settings screen. `NavPanel`, maneuver icon tinting + fallbacks, layout rules in `DeskScreen`, directions pill, tap-to-open Maps.
 4. **N3: Polish.** `RoadBackdrop`, transitions, burn-in, accessibility, one-time hint card, debug `DemoNavActivity`.
 5. **N4: Docs and release.** README privacy text, Plan.md updates, new screenshot `docs/screens/nav.svg`, ship in the next minor version.
 

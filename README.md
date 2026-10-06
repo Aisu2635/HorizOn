@@ -15,12 +15,13 @@ An open-source Android app that turns a charging phone on its side into a calm d
 - Player background tinted from the album art
 - Starts automatically while charging (Android screen saver), or launch it from the app icon
 - Burn-in protection
+- Optional turn-by-turn directions from Google Maps next to the music (tap the screen, then **Directions**)
 
 Night mode, more clock faces and alarm display are planned for v0.2.
 
 ## Privacy
 
-HorizOn has **no internet permission**. It uses notification access only to read which song is playing; it never reads or stores notification content.
+HorizOn has **no internet permission**. It uses notification access to read which song is playing. If you turn on **Directions**, it also reads Google Maps' turn-by-turn notification while you navigate, to show the next turn. It reads no other notifications, keeps directions in memory only, and never stores or sends anything.
 
 ## Install
 
