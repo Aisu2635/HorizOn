@@ -8,7 +8,7 @@ import org.junit.Test
 import java.util.Locale
 
 private const val MAPS = "com.google.android.apps.maps"
-private const val NBSP = ' '
+private const val NBSP = '\u00A0'
 
 class NavParserTest {
     private val base = NavFields(

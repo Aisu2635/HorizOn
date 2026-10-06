@@ -80,7 +80,7 @@ fun NavPanel(
     onOpenApp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val appName = rememberAppLabel(nav.packageName) ?: "Maps"
+    val appName = rememberAppName(nav.packageName)
     BoxWithConstraints(
         modifier
             .fillMaxSize()
@@ -106,14 +106,15 @@ fun NavPanel(
             ) { info ->
                 Maneuver(nav, info, iconSize, distanceSize)
             }
-            Spacer(Modifier.weight(1f))
+            // A little less space below than above, so the trip facts don't drift away from the turn.
+            Spacer(Modifier.weight(0.6f))
             TripRow(nav.info)
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 headsetSlot()
-                if (battery != null) BatteryLabel(battery)
+                if (battery != null) BatteryLabel(battery, spelledOut = true)
                 Spacer(Modifier.weight(1f))
-                Text("via $appName", color = Muted, fontSize = 13.sp, letterSpacing = 0.04.em)
+                Text("via $appName", color = Muted, fontSize = 13.sp, letterSpacing = 0.04.em, maxLines = 1)
             }
         }
     }
@@ -145,8 +146,9 @@ private fun Maneuver(nav: NavState, info: NavInfo, iconSize: Dp, distanceSize: D
                         withStyle(SpanStyle(color = Muted)) { append(info.road) }
                     }
                 },
-                fontSize = 24.sp,
-                lineHeight = 30.sp,
+                // With no distance (e.g. "Head north") the instruction is the headline, so it gets more room.
+                fontSize = if (info.distanceToTurn == null) 34.sp else 24.sp,
+                lineHeight = if (info.distanceToTurn == null) 40.sp else 30.sp,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 // Announced when the maneuver changes, not on every distance update.
@@ -253,10 +255,18 @@ fun DirectionsPill(nav: NavState, onClick: () -> Unit, modifier: Modifier = Modi
     }
 }
 
+/** Maps calls itself just "Maps" on the phone; spell out which one. */
+private val KNOWN_APP_NAMES = mapOf(
+    "com.google.android.apps.maps" to "Google Maps",
+    "com.google.android.apps.navlite" to "Google Maps Go",
+)
+
 @Composable
-private fun rememberAppLabel(packageName: String): String? {
+private fun rememberAppName(packageName: String): String {
     val context = LocalContext.current
-    return remember(packageName) { context.appLabel(packageName) }
+    return remember(packageName) {
+        KNOWN_APP_NAMES[packageName] ?: context.appLabel(packageName) ?: "Maps"
+    }
 }
 
 private fun Context.appLabel(packageName: String): String? = try {

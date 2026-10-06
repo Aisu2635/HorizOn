@@ -1,6 +1,6 @@
 # HorizOn: Navigation plan
 
-> Status: N0 done, go (2026-10-06); N1 done; N2 in progress. See [docs/nav/N0-report.md](docs/nav/N0-report.md). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
+> Status: N0 done, go (2026-10-06); N1 and N2 done. See [docs/nav/N0-report.md](docs/nav/N0-report.md). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
 
 ## 1. Goal
 
@@ -112,7 +112,7 @@ Layout rules in `DeskScreen`:
 |---|---|---|
 | No | yes / no | Today's behavior (split or full clock) |
 | Yes | yes | **NavPanel + PlayerCard** (the mockup) |
-| Yes | no | NavPanel full width, with large clock in the header |
+| Yes | no | NavPanel on the left, the chosen clock face on the right (full-width directions left half the screen empty in testing) |
 
 - Navigation takes priority over the user's last swipe while it is active; a swipe still switches to the full clock, and the "now playing" pill gains a "directions" pill that brings the nav view back.
 - Tap the panel → send Maps' `contentIntent` (reuse `pendingIntentStartOptions()` from `MediaRepository`; move it to a shared helper).
@@ -148,7 +148,7 @@ On the nav pill / empty state, a "Open Google Maps" action:
 
 1. **N0: Spike. Done:** go, see [N0 report](docs/nav/N0-report.md). Debug sample logger; capture real Maps notifications (2 locales, km/mi, Android 14 and 16). Confirm the fields in 3.1. Exit: fixtures committed, go/no-go on approach A.
 2. **N1: Data. Done.** `NavState`, `NavParser` + tests, `NavRepository`, listener overrides with the package allowlist, `showNavigation` setting.
-3. **N2: UI. In progress.** The on/off switch lives in the tap controls ("Directions on/off") until there is a settings screen. `NavPanel`, maneuver icon tinting + fallbacks, layout rules in `DeskScreen`, directions pill, tap-to-open Maps.
+3. **N2: UI. Done** (tested on device 2026-10-06, T1–T11 pass; turn changes while moving not yet seen). The on/off switch lives in the tap controls ("Directions on/off") until there is a settings screen. `NavPanel`, maneuver icon tinting + fallbacks, layout rules in `DeskScreen`, directions pill, tap-to-open Maps.
 4. **N3: Polish.** `RoadBackdrop`, transitions, burn-in, accessibility, one-time hint card, debug `DemoNavActivity`.
 5. **N4: Docs and release.** README privacy text, Plan.md updates, new screenshot `docs/screens/nav.svg`, ship in the next minor version.
 
@@ -157,6 +157,7 @@ On the nav pill / empty state, a "Open Google Maps" action:
 - **Undocumented format.** Google can change the notification at any time. Mitigation: tolerant parser, raw-text fallback, fixtures that make breakage obvious, quick patch releases.
 - **Privacy perception.** Reading any notification content is a change from today's promise. Mitigation: opt-in, package allowlist checked before touching content, memory only, clear README wording.
 - **Listener killed by OEM battery savers.** Same risk as music today; `requestRebind` on resume and show "directions unavailable" rather than stale data. State is cleared when the listener disconnects.
+- **Heads-up popups from Maps.** Some phones (OnePlus "Live Alerts") pop Maps' notification over HorizOn on every maneuver change. HorizOn can't suppress another app's alerts; users can turn them off for Maps in the phone's notification settings.
 - **Driver distraction.** Keep the screen calm: no flashing, no extra taps needed, large type. HorizOn mirrors Maps; voice guidance stays in Maps.
 - **Untested setups.** Only Android 16 on one OnePlus phone, in English, has been sampled. Android 8 to 15 (no `ProgressStyle`, so maybe no `progressMax` and no remaining distance), other languages and Maps Go still need samples. Re-run the N0 guide on another device when possible.
 - **No real map.** Users may expect the mockup's map. The decorative backdrop and tap-to-open-Maps cover this; a real map needs option B.

@@ -109,7 +109,7 @@ private enum class DeskLayout {
     /** Clock (or directions) on the left, player card on the right. */
     Split,
 
-    /** Directions across the whole screen: navigating with nothing playing. */
+    /** Navigating with nothing playing: directions on the left, the clock on the right. */
     Directions,
 
     /** The full-screen clock. */
@@ -120,7 +120,7 @@ private enum class DeskLayout {
  * The standby screen.
  * - Music available (or access not yet granted): clock on the left, player card on the right.
  *   While Google Maps is navigating (and directions are on), directions replace the clock.
- * - Navigating with no music: directions fill the screen.
+ * - Navigating with no music: directions on the left, the clock on the right.
  * - Otherwise, or after a swipe: the full-screen clock, with Now Playing and directions pills.
  * Tap anywhere for the controls (clock style and Close); swipe sideways to switch layouts.
  */
@@ -267,10 +267,10 @@ fun DeskScreen(onClose: () -> Unit) {
         ) {
             // Wait for the stored face before drawing, so the wrong one never flashes up.
             val currentFace = face ?: return@Box
-            val directions: (@Composable (NavState) -> Unit) = { current ->
+            val directions: (@Composable (NavState, String) -> Unit) = { current, header ->
                 NavPanel(
                     nav = current,
-                    header = dateAndTime,
+                    header = header,
                     battery = battery,
                     headsetSlot = headsetSlot,
                     onTap = { controlsVisible = !controlsVisible },
@@ -284,7 +284,7 @@ fun DeskScreen(onClose: () -> Unit) {
             ) { target ->
                 when (target) {
                     DeskLayout.Split -> {
-                        SplitLayout(currentFace, time, date, battery, nav, directions, headsetSlot) {
+                        SplitLayout(currentFace, time, date, battery, nav, { directions(it, dateAndTime) }, headsetSlot) {
                             val playing = nowPlaying
                             if (playing != null) {
                                 PlayerCard(
@@ -307,12 +307,26 @@ fun DeskScreen(onClose: () -> Unit) {
                     DeskLayout.Directions -> {
                         // Keep showing the last directions while the layout fades out.
                         val current = nav ?: navState
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 40.dp, vertical = 28.dp),
-                        ) {
-                            if (current != null) directions(current)
+                        // Directions where the clock usually is, and the clock where the music would be.
+                        Row(Modifier.fillMaxSize()) {
+                            Box(
+                                Modifier
+                                    .weight(1.1f)
+                                    .fillMaxHeight()
+                                    .padding(start = 40.dp, end = 12.dp, top = 28.dp, bottom = 28.dp),
+                            ) {
+                                if (current != null) directions(current, date)
+                            }
+                            Crossfade(
+                                currentFace,
+                                label = "clockFace",
+                                modifier = Modifier
+                                    .weight(0.9f)
+                                    .fillMaxHeight()
+                                    .padding(top = 20.dp, bottom = 20.dp, end = 24.dp),
+                            ) {
+                                ClockFaceContent(it, time)
+                            }
                         }
                     }
                     DeskLayout.Clock -> {
