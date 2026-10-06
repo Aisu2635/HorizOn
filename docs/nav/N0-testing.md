@@ -49,6 +49,8 @@ This guide is written to be followed by a Claude Code session running on the lap
    adb logcat -c
    adb logcat -s HorizOnNav:V AndroidRuntime:E > nav_logcat.txt
    ```
+   (Before 2026-10-06 the logger remembered saved icons in memory, so clearing here lost them until HorizOn was force-stopped. It now checks the files on disk.)
+
    Sanity check: toggle HorizOn's notification access off and on (or reinstall). Logcat should show `Listener connected, N navigation notification(s) active`. If nothing appears at all, the listener is not running; note it and stop.
 
 ## 2. Scenarios

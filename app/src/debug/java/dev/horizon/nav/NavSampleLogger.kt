@@ -25,12 +25,6 @@ private const val TAG = "HorizOnNav"
 /** Logcat drops lines longer than about 4000 characters, so long samples are split. */
 private const val LOG_CHUNK = 3_000
 
-/** Apps whose navigation notifications we study. Nothing from any other app is touched. */
-private val NAV_PACKAGES = setOf(
-    "com.google.android.apps.maps",
-    "com.google.android.apps.navlite", // Google Maps Go
-)
-
 /**
  * Debug builds only (Nav_plan.md, milestone N0). Records every notification from
  * [NAV_PACKAGES] to Logcat (tag `HorizOnNav`) and to `files/nav_samples/` in app storage,
@@ -44,9 +38,6 @@ private val NAV_PACKAGES = setOf(
  */
 internal object NavSampleLogger {
     private val io = Executors.newSingleThreadExecutor()
-
-    /** Hashes of icons already saved. Only touched on [io]. */
-    private val savedIcons = mutableSetOf<Int>()
 
     fun onConnected(service: NotificationListenerService) {
         val active = try {
@@ -162,8 +153,9 @@ internal object NavSampleLogger {
         icon.getPixels(pixels, 0, icon.width, 0, 0, icon.width, icon.height)
         val hash = pixels.contentHashCode()
         val name = "icons/${Integer.toHexString(hash)}.png"
-        if (savedIcons.add(hash)) {
-            val file = File(sampleDir(service), name)
+        // Checked on disk rather than remembered, so clearing nav_samples/ brings icons back.
+        val file = File(sampleDir(service), name)
+        if (!file.exists()) {
             try {
                 file.parentFile?.mkdirs()
                 file.outputStream().use { icon.compress(Bitmap.CompressFormat.PNG, 100, it) }

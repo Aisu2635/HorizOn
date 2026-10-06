@@ -1,6 +1,6 @@
 # HorizOn: Navigation plan
 
-> Status: proposal (2026-10-06). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
+> Status: N0 done, go (2026-10-06); N1 in progress. See [docs/nav/N0-report.md](docs/nav/N0-report.md). Adds turn-by-turn directions to the standby screen, next to the music card, while Google Maps is navigating. Inspired by an AI-rendered mockup (directions on the left, player on the right).
 
 ## 1. Goal
 
@@ -39,24 +39,32 @@ The mockup's moving street map is not a goal for v1 (see section 2). The turn, d
 ## 3. How it works
 
 ### 3.1 Source: the Google Maps navigation notification
-While navigating, Google Maps (`com.google.android.apps.maps`) keeps an ongoing notification with the next maneuver. Typical content (exact strings vary by Maps version, locale and units, so we must capture real samples first, see N0):
+While navigating, Google Maps (`com.google.android.apps.maps`) keeps an ongoing notification with the next maneuver. Confirmed in N0 (Google Maps 26.39, Android 16, OnePlus; [report](docs/nav/N0-report.md), fixtures in `app/src/test/resources/nav/`):
 
-| Notification field | Typical content | Used for |
+| Notification field | Real content | Used for |
 |---|---|---|
-| `EXTRA_TITLE` | `300 m` or `Turn right` | Distance to the next maneuver / instruction |
-| `EXTRA_TEXT` / `EXTRA_BIG_TEXT` | `onto Broadway St` / `toward Main St` | Street |
-| `EXTRA_SUB_TEXT` | `12 min · 4.2 km · 7:30 PM ETA` | Time left, distance left, ETA |
-| Large icon (`EXTRA_LARGE_ICON` / `getLargeIcon()`) | White maneuver arrow bitmap | Turn arrow |
+| `android.title` | `100 m · Turn left toward Street A`, or a bare `Head north`; `Starting navigation…` at first | Distance, instruction, road (split on ` · `, then on ` toward ` / ` onto ` / ` on `) |
+| `android.shortCriticalText` | `100 m`, `350 ft`; empty when there is no distance | Distance to the next turn |
+| `android.subText` | `Arrive 7:53 pm` / `Arrive 19:59` (follows the phone's clock format) | ETA |
+| `android.progress` / `android.progressMax` | metres travelled / route length in metres (also in miles mode) | Remaining distance (we format it in Maps' units) and a trip progress bar |
+| `android.progressSegments` | traffic-coloured route segments | Later: a traffic-coloured progress bar |
+| Large icon (`getLargeIcon()`, an `Icon`) | White arrow on transparent, 168×168 | Turn arrow, tinted by us |
 | `contentIntent` | Opens Maps' navigation screen | Tap to open Maps |
-| `flags`, `category` | `FLAG_ONGOING_EVENT`, `navigation` category | Telling it apart from other Maps notifications |
+| `category`, flags | `navigation`, ongoing, foreground service | Telling it apart from other Maps notifications |
 
-On Android 16, Maps may post this as a promoted "Live Update" (`Notification.ProgressStyle`). The parser must read the same standard extras in both cases and use the progress value, when present, as an optional trip-progress bar.
+Not present: remaining time, and the destination. `android.text` is null and there are no custom views. On Android 16 it is a promoted `ProgressStyle` Live Update; older Android versions are not sampled yet.
+
+Behaviour that shapes the design:
+- **Maps removes the notification while Maps is on screen** and posts it again when you leave. Removal is therefore cleared after a 3 s grace period, so coming back from Maps doesn't flash the clock.
+- **Updates are irregular:** about once a second while moving, but none for 45 to 90 s while standing still. A quiet notification is not stale; there is no time-out while it is posted.
+- **The channel changes between posts** (`1_foreground_1` / `1_2`), so it is not used for filtering.
+- Maps also posts a traffic alert (id 1532, no category) and a group summary (id 0). Both are ignored.
 
 ### 3.2 Reading it without breaking our privacy promise
 We already have notification access (needed for media sessions). Today `MediaListenerService` deliberately overrides nothing. It will now override `onNotificationPosted`, `onNotificationRemoved`, `onListenerConnected` and `onListenerDisconnected`, with strict rules:
 
 1. **Allowlist by package first.** The very first check is `sbn.packageName in NAV_PACKAGES`. Anything else returns immediately; its extras are never touched.
-2. **Ongoing navigation only.** Require `FLAG_ONGOING_EVENT`, and prefer `category == navigation` when set.
+2. **Ongoing navigation only.** Require `FLAG_ONGOING_EVENT` and `category == navigation`, checked before any text is read.
 3. **Memory only.** The parsed state lives in a `StateFlow`; nothing is written to disk, DataStore or logs (release builds log nothing).
 4. **Opt-in.** A setting "Show directions from Google Maps" (default off). When off, the service ignores even allowlisted packages.
 5. **Do not rename `MediaListenerService`.** Notification access is granted per component name; renaming the class would silently revoke every existing user's grant. Update its KDoc instead.
@@ -75,32 +83,21 @@ Google Maps ──notification──▶ MediaListenerService (filters by package
                      DeskScreen ──▶ NavPanel (left)  +  PlayerCard (right)
 ```
 
-The service is bound by the system, not by our UI, so the repository is a process-wide singleton (an `object` or a holder on the `Application`) that both sides share. `onListenerConnected` scans `activeNotifications` so navigation that started before HorizOn opened shows up immediately; `onListenerDisconnected` and `onNotificationRemoved` (for the tracked key) clear the state.
+The service is bound by the system, not by our UI, so the repository is a process-wide singleton (an `object` or a holder on the `Application`) that both sides share. `onListenerConnected` scans `activeNotifications` so navigation that started before HorizOn opened shows up immediately; `onListenerDisconnected` clears the state; `onNotificationRemoved` (for the tracked key) clears it after the 3 s grace period.
 
 ### 3.4 Model
 
-```kotlin
-/** The next maneuver mirrored from a navigation app's notification. */
-data class NavState(
-    val packageName: String,
-    val appLabel: String?,         // "Google Maps", shown as "via Google Maps"
-    val distanceToTurn: String?,   // "300 m", kept as Maps formatted it (units, locale)
-    val instruction: String?,      // "Turn right"
-    val street: String?,           // "Broadway St"
-    val eta: String?,              // "7:30 PM"
-    val remainingDistance: String?,// "4.2 km"
-    val remainingTime: String?,    // "12 min"
-    val maneuverIcon: Bitmap?,     // Maps' arrow, tinted by us
-    val tripProgress: Float?,      // 0..1 from ProgressStyle when available
-    val openIntent: PendingIntent?,
-    val updatedAt: Long,           // elapsedRealtime, for staleness
-)
-```
+Implemented in N1 (`app/src/main/java/dev/horizon/nav/`):
 
-`NavParser` is a pure function (`Bundle`-free inputs: plain strings + bitmap) so it can be unit-tested on the JVM. Rules:
-- Keep Maps' own strings for distances and times; don't convert units or reformat. This avoids locale bugs.
-- Split `EXTRA_SUB_TEXT` on `·` / `•` and classify each part (contains a clock time → ETA; distance unit → remaining distance; duration → remaining time). Unrecognized parts are dropped, not guessed.
-- If parsing fails, fall back to showing the raw title and text. Never show nothing while a nav notification exists.
+- `NavFields`: the few notification values we read, as plain strings and ints.
+- `NavParser.parse(NavFields): NavInfo?`: pure Kotlin, tested on the JVM against the N0 fixtures. `NavInfo` holds `distanceToTurn`, `instruction`, `road`, `arrival`, `etaTime`, `remainingMeters`, `tripProgress`, `imperial` and `starting`.
+- `NavState`: `NavInfo` plus the maneuver bitmap, the `contentIntent` and the notification key.
+- `NavRepository`: a process-wide `StateFlow<NavState?>`, written by `MediaListenerService`, read by the UI.
+
+Parsing rules:
+- Keep Maps' own strings for the turn distance and arrival time; don't reformat them. Only the remaining distance is ours to format, in the units Maps uses (`ft`/`mi` in the turn distance means imperial).
+- The road split and the `Arrive ` prefix are English-only. In other languages the whole instruction and arrival line are shown as they are, which is still correct, just less styled.
+- If the title can't be split, show it whole. Never show nothing while a navigation notification exists.
 
 ### 3.5 UI
 
@@ -149,8 +146,8 @@ On the nav pill / empty state, a "Open Google Maps" action:
 
 ## 6. Milestones
 
-1. **N0: Spike.** Debug sample logger; capture real Maps notifications (2 locales, km/mi, Android 14 and 16). Confirm the fields in 3.1. Exit: fixtures committed, go/no-go on approach A.
-2. **N1: Data.** `NavState`, `NavParser` + tests, `NavRepository`, listener overrides with the package allowlist, `showNavigation` setting.
+1. **N0: Spike. Done:** go, see [N0 report](docs/nav/N0-report.md). Debug sample logger; capture real Maps notifications (2 locales, km/mi, Android 14 and 16). Confirm the fields in 3.1. Exit: fixtures committed, go/no-go on approach A.
+2. **N1: Data. In progress.** `NavState`, `NavParser` + tests, `NavRepository`, listener overrides with the package allowlist, `showNavigation` setting.
 3. **N2: UI.** `NavPanel`, maneuver icon tinting + fallbacks, layout rules in `DeskScreen`, directions pill, tap-to-open Maps.
 4. **N3: Polish.** `RoadBackdrop`, transitions, burn-in, accessibility, one-time hint card, debug `DemoNavActivity`.
 5. **N4: Docs and release.** README privacy text, Plan.md updates, new screenshot `docs/screens/nav.svg`, ship in the next minor version.
@@ -159,8 +156,9 @@ On the nav pill / empty state, a "Open Google Maps" action:
 
 - **Undocumented format.** Google can change the notification at any time. Mitigation: tolerant parser, raw-text fallback, fixtures that make breakage obvious, quick patch releases.
 - **Privacy perception.** Reading any notification content is a change from today's promise. Mitigation: opt-in, package allowlist checked before touching content, memory only, clear README wording.
-- **Listener killed by OEM battery savers.** Same risk as music today; `requestRebind` on resume and show "directions unavailable" rather than stale data. Clear state if no update arrives for a few minutes while the listener is disconnected.
+- **Listener killed by OEM battery savers.** Same risk as music today; `requestRebind` on resume and show "directions unavailable" rather than stale data. State is cleared when the listener disconnects.
 - **Driver distraction.** Keep the screen calm: no flashing, no extra taps needed, large type. HorizOn mirrors Maps; voice guidance stays in Maps.
+- **Untested setups.** Only Android 16 on one OnePlus phone, in English, has been sampled. Android 8 to 15 (no `ProgressStyle`, so maybe no `progressMax` and no remaining distance), other languages and Maps Go still need samples. Re-run the N0 guide on another device when possible.
 - **No real map.** Users may expect the mockup's map. The decorative backdrop and tap-to-open-Maps cover this; a real map needs option B.
 
 ## 8. Later
