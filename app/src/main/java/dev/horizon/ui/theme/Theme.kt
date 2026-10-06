@@ -1,4 +1,4 @@
-package dev.zendesk.ui.theme
+package dev.horizon.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -22,6 +22,6 @@ private val DeskColors = darkColorScheme(
 
 /** Always dark: the app is a bedside/desk display. */
 @Composable
-fun ZendeskTheme(content: @Composable () -> Unit) {
+fun HorizOnTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = DeskColors, content = content)
 }

@@ -1,4 +1,4 @@
-# Zendesk — Plan
+# HorizOn — Plan
 
 > Working name. An open-source Android app that turns a charging phone in landscape into a desk clock and music display, similar in spirit to iOS StandBy.
 
@@ -70,7 +70,7 @@ Interactive mockups: https://claude.ai/artifact/4ZfPks3beKXBfjN2ZHSFdD
 
 ### Auto-launch while charging
 - Implement `DeskDreamService : DreamService` and host the Compose UI inside it (via `ComposeView` with a lifecycle/saved-state owner set up manually).
-- Users select Zendesk under **Settings → Display → Screen saver** and pick "While charging." Onboarding deep-links there.
+- Users select HorizOn under **Settings → Display → Screen saver** and pick "While charging." Onboarding deep-links there.
 - Also provide `DeskActivity` (landscape, `FLAG_KEEP_SCREEN_ON`, immersive) for manual launch and for devices whose OEM hides the screensaver setting.
 
 ### Reading now playing
@@ -98,9 +98,9 @@ No internet permission in the MVP. This is a privacy point worth stating in the 
 ## 7. Project structure
 
 ```
-zendesk/
+horizon/
 ├── app/
-│   └── src/main/java/dev/zendesk/
+│   └── src/main/java/dev/horizon/
 │       ├── DeskActivity.kt
 │       ├── dream/DeskDreamService.kt
 │       ├── media/
@@ -151,8 +151,8 @@ zendesk/
 - **Inconsistent metadata:** some apps publish missing album art or odd positions. Show graceful fallbacks.
 - **Multiple sessions:** decide which session wins if two apps are active.
 - **Battery and heat:** keep frame updates minimal (clock updates once a minute; progress bar redraws only while visible).
-- **Final name:** "Zendesk" is a placeholder; check GitHub and Play Store for conflicts.
+- **Final name:** "HorizOn" (chosen 2026-10-06); still check GitHub and Play Store for conflicts before publishing.
 
 ## 11. Kickoff prompt for Claude Code
 
-> Read Plan.md. Set up milestone M0: a new Android project in Kotlin with Jetpack Compose, Gradle Kotlin DSL, a version catalog, package `dev.zendesk`, minSdk 26, a GitHub Actions workflow that runs lint and unit tests, an Apache-2.0 LICENSE, and a README using the screens in docs/screens. Then start M1.
+> Read Plan.md. Set up milestone M0: a new Android project in Kotlin with Jetpack Compose, Gradle Kotlin DSL, a version catalog, package `dev.horizon`, minSdk 26, a GitHub Actions workflow that runs lint and unit tests, an Apache-2.0 LICENSE, and a README using the screens in docs/screens. Then start M1.

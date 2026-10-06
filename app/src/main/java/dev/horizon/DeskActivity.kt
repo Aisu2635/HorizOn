@@ -1,4 +1,4 @@
-package dev.zendesk
+package dev.horizon
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,14 +12,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import dev.zendesk.ui.theme.ZendeskTheme
+import dev.horizon.ui.theme.HorizOnTheme
 
 /** Single activity hosting the desk display. M1 turns this into the full clock. */
 class DeskActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ZendeskTheme {
+            HorizOnTheme {
                 Placeholder()
             }
         }
@@ -35,7 +35,7 @@ private fun Placeholder() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "Zendesk",
+            text = "HorizOn",
             style = MaterialTheme.typography.displayLarge,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -45,5 +45,5 @@ private fun Placeholder() {
 @Preview(widthDp = 844, heightDp = 390)
 @Composable
 private fun PlaceholderPreview() {
-    ZendeskTheme { Placeholder() }
+    HorizOnTheme { Placeholder() }
 }

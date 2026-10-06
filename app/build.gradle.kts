@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.zendesk"
+    namespace = "dev.horizon"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.zendesk"
+        applicationId = "dev.horizon"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

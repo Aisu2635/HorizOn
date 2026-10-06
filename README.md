@@ -1,4 +1,4 @@
-# Zendesk
+# HorizOn
 
 An open-source Android app that turns a charging phone on its side into a calm desk clock and music display.
 
@@ -20,7 +20,7 @@ Night mode, more clock faces and alarm display are planned for v0.2.
 
 ## Privacy
 
-Zendesk has **no internet permission**. It uses notification access only to read which song is playing; it never reads or stores notification content.
+HorizOn has **no internet permission**. It uses notification access only to read which song is playing; it never reads or stores notification content.
 
 ## Install
 

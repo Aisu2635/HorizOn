@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Zendesk"
+rootProject.name = "HorizOn"
 include(":app")

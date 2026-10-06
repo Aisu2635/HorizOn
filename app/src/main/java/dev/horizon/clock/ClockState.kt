@@ -1,4 +1,4 @@
-package dev.zendesk.clock
+package dev.horizon.clock
 
 /** Formats the big clock digits, e.g. "9:41" (12h) or "21:41" (24h). */
 fun formatClockTime(hour: Int, minute: Int, is24Hour: Boolean): String {

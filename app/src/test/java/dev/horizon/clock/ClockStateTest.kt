@@ -1,4 +1,4 @@
-package dev.zendesk.clock
+package dev.horizon.clock
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
