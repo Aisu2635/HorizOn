@@ -69,6 +69,7 @@ import dev.horizon.device.batteryStatus
 import dev.horizon.device.hasBluetoothPermission
 import dev.horizon.device.headsetStatus
 import dev.horizon.device.openOtherApp
+import dev.horizon.lyrics.LyricsRepository
 import dev.horizon.media.MediaRepository
 import dev.horizon.media.NowPlaying
 import dev.horizon.nav.NavRepository
@@ -77,6 +78,7 @@ import dev.horizon.settings.ClockFace
 import dev.horizon.settings.SettingsRepository
 import dev.horizon.ui.faces.ClockFaceContent
 import dev.horizon.ui.faces.ClockTime
+import dev.horizon.ui.lyrics.LyricsPage
 import dev.horizon.ui.nav.DirectionsPill
 import dev.horizon.ui.nav.DirectionsPrompt
 import dev.horizon.ui.nav.NavPanel
@@ -106,6 +108,9 @@ private const val SWIPE_THRESHOLD_PX = 120f
 
 /** How long the "headphones connected" banner stays up. */
 private const val HEADSET_BANNER_MS = 4_000L
+
+/** The three pages the user swipes between, left to right. */
+private enum class DeskPage { Clock, Main, Lyrics }
 
 /** Which arrangement the standby screen shows. */
 private enum class DeskLayout {
@@ -164,6 +169,11 @@ fun DeskScreen(onClose: () -> Unit) {
     val mapsNavigating by NavRepository.navigating.collectAsStateWithLifecycle()
     val navPromptDismissed by settings.navPromptDismissed.collectAsStateWithLifecycle(initialValue = true)
     val showNavPrompt = hasAccess && mapsNavigating && !showNavigation && !navPromptDismissed
+
+    // Lyrics (HorizOn+ only): looked up online once the user agrees.
+    val showLyrics by settings.showLyrics.collectAsStateWithLifecycle(initialValue = false)
+    val lyricsPromptDismissed by settings.lyricsPromptDismissed.collectAsStateWithLifecycle(initialValue = true)
+    val showLyricsPrompt = LyricsRepository.online && !showLyrics && !lyricsPromptDismissed
 
     // Bluetooth headphones: detected without permission; name and battery need "Nearby devices".
     var bluetoothGranted by remember { mutableStateOf(context.hasBluetoothPermission()) }

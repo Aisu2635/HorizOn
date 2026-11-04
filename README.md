@@ -17,6 +17,7 @@ An open-source Android app that turns a charging phone on its side into a calm d
 - Starts automatically while charging (Android screen saver), or launch it from the app icon
 - Burn-in protection, and a pure black background so OLED screens keep unused pixels off
 - Optional turn-by-turn directions from Google Maps next to the music (tap the screen, then **Directions**)
+- Swipe left while music plays: time-synced lyrics drawn as a web of words (HorizOn+ only), or a visualizer in the album's colours
 
 Night mode, more clock faces and alarm display are planned for v0.2.
 
@@ -44,7 +45,7 @@ Requires Android 8.0 or newer.
 
 ## Release (maintainers)
 
-Releases are built and signed by GitHub Actions when a version tag is pushed:
+Releases are built and signed by GitHub Actions when a version tag is pushed. Each release attaches both APKs:
 
 1. Bump `versionCode` and `versionName` in `app/build.gradle.kts` and commit.
 2. `git tag v0.1.0 && git push origin v0.1.0` (the tag must match `versionName`).

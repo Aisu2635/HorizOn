@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v0.1.0 to build a signed APK and publish it as a GitHub release.
+# Push a tag like v0.1.0 to build both signed APKs (HorizOn and HorizOn+) and publish a GitHub release.
 on:
   push:
     tags: ["v*"]
