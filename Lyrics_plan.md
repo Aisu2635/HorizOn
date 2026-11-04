@@ -1,6 +1,6 @@
 # HorizOn: Lyrics plan
 
-> Status: proposal (2026-11-04). Adds a third screen, reached by swiping left from clock + music: time-synced lyrics drawn as a growing web of words, or an audio visualizer when a song has no lyrics. Also gives the music card a glass edge and makes every music colour come from the album cover.
+> Status: L0–L6 built (2026-11-04), waiting for CI and on-device testing. Adds a third screen, reached by swiping left from clock + music: time-synced lyrics drawn as a growing web of words, or an audio visualizer when a song has no lyrics. Also gives the music card a glass edge and makes every music colour come from the album cover.
 >
 > Mockup (animated): https://claude.ai/artifact/953JBAWSCjxyXac6QzowEA
 

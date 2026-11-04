@@ -15,16 +15,24 @@ import android.os.Bundle
 import android.os.SystemClock
 import androidx.core.graphics.createBitmap
 import dev.horizon.DeskActivity
+import dev.horizon.lyrics.LrcParser
+import dev.horizon.lyrics.LyricsRepository
+import dev.horizon.lyrics.LyricsRequest
+import dev.horizon.lyrics.LyricsResult
+import dev.horizon.lyrics.LyricsSource
 
 /**
  * Debug builds only. Starts a fake media session with a few demo tracks, then opens the desk
- * screen, so the player can be tested and screenshotted without a real music app:
+ * screen, so the player can be tested and screenshotted without a real music app. Its songs get
+ * made-up lyrics (one is instrumental), and two have a near-black and a greyscale cover to test
+ * album colours:
  *
  *     adb shell am start -n dev.horizon/.debug.DemoMediaActivity
  */
 class DemoMediaActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LyricsRepository.demo = DemoLyrics
         DemoSession.start(applicationContext)
         startActivity(Intent(this, DeskActivity::class.java))
         finish()
@@ -38,6 +46,8 @@ private object DemoSession {
         Track("Midnight Drive", "Horizon Demo", 228_000, 0xFFF2A65A.toInt(), 0xFF3B1A12.toInt()),
         Track("Blue Hour", "The Placeholders", 194_000, 0xFF5AA9F2.toInt(), 0xFF10203B.toInt()),
         Track("Green Room Sessions", "Test Pattern Orchestra", 251_000, 0xFF7FD18B.toInt(), 0xFF12301A.toInt()),
+        Track("Night Shift", "The Placeholders", 203_000, 0xFF1E2740.toInt(), 0xFF04060C.toInt()),
+        Track("Paper Moon", "Horizon Demo", 187_000, 0xFFE6E6E6.toInt(), 0xFF121212.toInt()),
     )
 
     private var session: MediaSession? = null
@@ -111,5 +121,36 @@ private object DemoSession {
             }
             Canvas(bitmap).drawRect(0f, 0f, size.toFloat(), size.toFloat(), paint)
         }
+    }
+}
+
+/** Made-up lyrics for the demo songs, line-synced every 4.4 s for the whole song. */
+private object DemoLyrics : LyricsSource {
+    private val verses = listOf(
+        "Streetlights hum a quiet tune",
+        "I trace your name across the moon",
+        "Every signal finds its way",
+        "back to you at the end of day",
+        "Wires glowing, hearts in sync",
+        "closer than we used to think",
+        "",
+        "Turn the dial and let it play",
+        "static fading into grey",
+    )
+
+    override suspend fun find(request: LyricsRequest): LyricsResult {
+        if (request.title == "Green Room Sessions") return LyricsResult.Instrumental
+        val lrc = buildString {
+            var t = 2_000L
+            var i = 0
+            while (t < request.durationMs) {
+                val ms = t % 1_000 / 10
+                append("[%02d:%02d.%02d]".format(java.util.Locale.ROOT, t / 60_000, t / 1_000 % 60, ms))
+                append(verses[i % verses.size]).append('\n')
+                t += 4_400
+                i++
+            }
+        }
+        return LyricsResult.Synced(LrcParser.parse(lrc))
     }
 }

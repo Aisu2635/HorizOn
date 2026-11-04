@@ -15,16 +15,17 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
+      # Two builds: offline (HorizOn, no internet) and online (HorizOn+, lyrics).
       - name: Lint and unit tests
-        run: ./gradlew lintDebug testDebugUnitTest
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew lintOfflineDebug lintOnlineDebug testOfflineDebugUnitTest testOnlineDebugUnitTest
+      - name: Build debug APKs
+        run: ./gradlew assembleOfflineDebug assembleOnlineDebug
       - uses: actions/upload-artifact@v7
         with:
-          name: horizon-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: horizon-debug-apks
+          path: app/build/outputs/apk/*/debug/*.apk
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: lint-report
-          path: app/build/reports/lint-results-debug.html
+          name: lint-reports
+          path: app/build/reports/lint-results-*.html

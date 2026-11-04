@@ -69,6 +69,7 @@ import dev.horizon.device.batteryStatus
 import dev.horizon.device.hasBluetoothPermission
 import dev.horizon.device.headsetStatus
 import dev.horizon.device.openOtherApp
+import dev.horizon.lyrics.LyricsRepository
 import dev.horizon.media.MediaRepository
 import dev.horizon.media.NowPlaying
 import dev.horizon.nav.NavRepository
@@ -77,6 +78,7 @@ import dev.horizon.settings.ClockFace
 import dev.horizon.settings.SettingsRepository
 import dev.horizon.ui.faces.ClockFaceContent
 import dev.horizon.ui.faces.ClockTime
+import dev.horizon.ui.lyrics.LyricsPage
 import dev.horizon.ui.nav.DirectionsPill
 import dev.horizon.ui.nav.DirectionsPrompt
 import dev.horizon.ui.nav.NavPanel
@@ -105,6 +107,9 @@ private const val SWIPE_THRESHOLD_PX = 120f
 /** How long the "headphones connected" banner stays up. */
 private const val HEADSET_BANNER_MS = 4_000L
 
+/** The three pages the user swipes between, left to right. */
+private enum class DeskPage { Clock, Main, Lyrics }
+
 /** Which arrangement the standby screen shows. */
 private enum class DeskLayout {
     /** Clock (or directions) on the left, player card on the right. */
@@ -115,6 +120,9 @@ private enum class DeskLayout {
 
     /** The full-screen clock. */
     Clock,
+
+    /** Lyrics as a web of words, or the visualizer (swipe left from the main page). */
+    Lyrics,
 }
 
 /**
@@ -122,8 +130,9 @@ private enum class DeskLayout {
  * - Music available (or access not yet granted): clock on the left, player card on the right.
  *   While Google Maps is navigating (and directions are on), directions replace the clock.
  * - Navigating with no music: directions on the left, the clock on the right.
- * - Otherwise, or after a swipe: the full-screen clock, with Now Playing and directions pills.
- * Tap anywhere for the controls (clock style and Close); swipe sideways to switch layouts.
+ * - Otherwise, or after a swipe right: the full-screen clock, with Now Playing and directions pills.
+ * - Swipe left while music is playing: lyrics, or a visualizer when there are none.
+ * Tap anywhere for the controls (clock style and Close).
  */
 @Composable
 fun DeskScreen(onClose: () -> Unit) {
@@ -155,6 +164,11 @@ fun DeskScreen(onClose: () -> Unit) {
     val mapsNavigating by NavRepository.navigating.collectAsStateWithLifecycle()
     val navPromptDismissed by settings.navPromptDismissed.collectAsStateWithLifecycle(initialValue = true)
     val showNavPrompt = hasAccess && mapsNavigating && !showNavigation && !navPromptDismissed
+
+    // Lyrics (HorizOn+ only): looked up online once the user agrees.
+    val showLyrics by settings.showLyrics.collectAsStateWithLifecycle(initialValue = false)
+    val lyricsPromptDismissed by settings.lyricsPromptDismissed.collectAsStateWithLifecycle(initialValue = true)
+    val showLyricsPrompt = LyricsRepository.online && !showLyrics && !lyricsPromptDismissed
 
     // Bluetooth headphones: detected without permission; name and battery need "Nearby devices".
     var bluetoothGranted by remember { mutableStateOf(context.hasBluetoothPermission()) }
@@ -214,13 +228,19 @@ fun DeskScreen(onClose: () -> Unit) {
 
     val showAccessCard = !hasAccess && promptDismissed == false
     val cardAvailable = nowPlaying != null || showAccessCard
-    // The user's swipe choice; reset whenever music or directions show up so they appear.
-    var preferFullClock by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(nowPlaying != null) { if (nowPlaying != null) preferFullClock = false }
-    LaunchedEffect(nav != null) { if (nav != null) preferFullClock = false }
+    // The page the user swiped to. Music or directions showing up brings them back from the full
+    // clock so they appear; the lyrics page needs something playing.
+    var page by rememberSaveable { mutableStateOf(DeskPage.Main) }
+    LaunchedEffect(nowPlaying != null) {
+        if (nowPlaying != null && page == DeskPage.Clock) page = DeskPage.Main
+        if (nowPlaying == null && page == DeskPage.Lyrics) page = DeskPage.Main
+    }
+    LaunchedEffect(nav != null) { if (nav != null && page == DeskPage.Clock) page = DeskPage.Main }
     val canSwitch = cardAvailable || nav != null
+    val hasMusic = nowPlaying != null
     val layout = when {
-        preferFullClock -> DeskLayout.Clock
+        page == DeskPage.Lyrics && hasMusic -> DeskLayout.Lyrics
+        page == DeskPage.Clock -> DeskLayout.Clock
         cardAvailable -> DeskLayout.Split
         nav != null -> DeskLayout.Directions
         else -> DeskLayout.Clock
@@ -248,13 +268,26 @@ fun DeskScreen(onClose: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .pointerInput(canSwitch) {
+            .pointerInput(canSwitch, hasMusic) {
                 var dragged = 0f
                 detectHorizontalDragGestures(
                     onDragStart = { dragged = 0f },
                     onHorizontalDrag = { _, amount -> dragged += amount },
                     onDragEnd = {
-                        if (canSwitch && abs(dragged) > SWIPE_THRESHOLD_PX) preferFullClock = !preferFullClock
+                        // Finger moving left shows the page to the right, like turning a page.
+                        if (abs(dragged) > SWIPE_THRESHOLD_PX) page = if (dragged < 0) {
+                            when (page) {
+                                DeskPage.Clock -> if (canSwitch) DeskPage.Main else page
+                                DeskPage.Main -> if (hasMusic) DeskPage.Lyrics else page
+                                DeskPage.Lyrics -> page
+                            }
+                        } else {
+                            when (page) {
+                                DeskPage.Lyrics -> DeskPage.Main
+                                DeskPage.Main -> if (canSwitch) DeskPage.Clock else page
+                                DeskPage.Clock -> page
+                            }
+                        }
                     },
                 )
             }
@@ -347,9 +380,27 @@ fun DeskScreen(onClose: () -> Unit) {
                     DeskLayout.Clock -> {
                         FullLayout(
                             currentFace, time, date, battery, nowPlaying, nav, prompt, headsetSlot,
-                            onShowPlayer = { preferFullClock = false },
-                            onShowDirections = { preferFullClock = false },
+                            onShowPlayer = { page = DeskPage.Main },
+                            onShowDirections = { page = DeskPage.Main },
                         )
+                    }
+                    DeskLayout.Lyrics -> {
+                        // Keep the last song while the page fades out after music stops.
+                        val playing = nowPlaying
+                        if (playing != null) {
+                            LyricsPage(
+                                nowPlaying = playing,
+                                time = time.text,
+                                nav = nav,
+                                lyricsEnabled = showLyrics,
+                                showLyricsPrompt = showLyricsPrompt,
+                                onEnableLyrics = { scope.launch { settings.setShowLyrics(true) } },
+                                onDismissLyricsPrompt = { scope.launch { settings.setLyricsPromptDismissed(true) } },
+                                onTap = { controlsVisible = !controlsVisible },
+                                onOpenApp = { activity?.let(media::openPlayerApp) },
+                                onShowDirections = { page = DeskPage.Main },
+                            )
+                        }
                     }
                 }
             }
@@ -382,7 +433,7 @@ fun DeskScreen(onClose: () -> Unit) {
                 onShowMusic = if (!hasAccess && promptDismissed == true) {
                     {
                         controlsTouch++
-                        preferFullClock = false
+                        page = DeskPage.Main
                         scope.launch { settings.setMusicPromptDismissed(false) }
                     }
                 } else {
@@ -393,6 +444,12 @@ fun DeskScreen(onClose: () -> Unit) {
                 onToggleDirections = {
                     controlsTouch++
                     scope.launch { settings.setShowNavigation(!showNavigation) }
+                },
+                // Lyrics are looked up online, so only HorizOn+ offers them.
+                lyricsOn = if (LyricsRepository.online && hasAccess) showLyrics else null,
+                onToggleLyrics = {
+                    controlsTouch++
+                    scope.launch { settings.setShowLyrics(!showLyrics) }
                 },
                 onClose = onClose,
             )
@@ -498,6 +555,8 @@ private fun ControlsBar(
     onShowMusic: (() -> Unit)?,
     directionsOn: Boolean?,
     onToggleDirections: () -> Unit,
+    lyricsOn: Boolean?,
+    onToggleLyrics: () -> Unit,
     onClose: () -> Unit,
 ) {
     val pill = RoundedCornerShape(50)
@@ -539,6 +598,21 @@ private fun ControlsBar(
                 Text(
                     if (directionsOn) "➤  Directions on" else "➤  Directions off",
                     color = if (directionsOn) Amber else Muted,
+                    fontSize = 15.sp,
+                )
+            }
+        }
+        if (lyricsOn != null) {
+            TextButton(
+                onClick = onToggleLyrics,
+                shape = pill,
+                modifier = Modifier
+                    .background(PillSurface, pill)
+                    .semantics { stateDescription = if (lyricsOn) "On" else "Off" },
+            ) {
+                Text(
+                    if (lyricsOn) "♫  Lyrics on" else "♫  Lyrics off",
+                    color = if (lyricsOn) Amber else Muted,
                     fontSize = 15.sp,
                 )
             }

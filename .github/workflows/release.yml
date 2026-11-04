@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v0.1.0 to build a signed APK and publish it as a GitHub release.
+# Push a tag like v0.1.0 to build both signed APKs (HorizOn and HorizOn+) and publish a GitHub release.
 on:
   push:
     tags: ["v*"]
@@ -43,13 +43,22 @@ jobs:
           HORIZON_KEYSTORE_PASSWORD: ${{ secrets.HORIZON_KEYSTORE_PASSWORD }}
           HORIZON_KEY_ALIAS: ${{ secrets.HORIZON_KEY_ALIAS }}
           HORIZON_KEY_PASSWORD: ${{ secrets.HORIZON_KEY_PASSWORD }}
-        # Unit tests only exist for the debug variant (AGP default); they cover the same code.
-        run: ./gradlew testDebugUnitTest assembleRelease
+        # Unit tests only exist for the debug variants (AGP default); they cover the same code.
+        run: ./gradlew testOfflineDebugUnitTest testOnlineDebugUnitTest assembleOfflineRelease assembleOnlineRelease
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="HorizOn-$GITHUB_REF_NAME.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$APK"
-          gh release create "$GITHUB_REF_NAME" "$APK" --title "HorizOn $GITHUB_REF_NAME" --generate-notes
+          OFFLINE="HorizOn-$GITHUB_REF_NAME.apk"
+          ONLINE="HorizOnPlus-$GITHUB_REF_NAME.apk"
+          cp app/build/outputs/apk/offline/release/app-offline-release.apk "$OFFLINE"
+          cp app/build/outputs/apk/online/release/app-online-release.apk "$ONLINE"
+          cat > notes.md <<EOF
+          **Which APK?**
+          - \`$OFFLINE\`: HorizOn. No internet permission. The lyrics screen shows a visualizer.
+          - \`$ONLINE\`: HorizOn+. Adds internet, used only to look up song lyrics on lrclib.net once you turn Lyrics on.
+
+          Both are signed with the same key, so you can switch by installing one over the other.
+          EOF
+          gh release create "$GITHUB_REF_NAME" "$OFFLINE" "$ONLINE" --title "HorizOn $GITHUB_REF_NAME" --notes-file notes.md --generate-notes
