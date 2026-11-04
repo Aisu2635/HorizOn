@@ -37,7 +37,7 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
 
-      - name: Test and build signed release APKs
+      - name: Test and build signed release APK
         env:
           HORIZON_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
           HORIZON_KEYSTORE_PASSWORD: ${{ secrets.HORIZON_KEYSTORE_PASSWORD }}
@@ -46,7 +46,6 @@ jobs:
         # Unit tests only exist for the debug variants (AGP default); they cover the same code.
         run: ./gradlew testOfflineDebugUnitTest testOnlineDebugUnitTest assembleOfflineRelease assembleOnlineRelease
 
-      # Two builds: HorizOn (no internet) and HorizOn+ (adds internet for lyrics).
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,11 +54,11 @@ jobs:
           ONLINE="HorizOnPlus-$GITHUB_REF_NAME.apk"
           cp app/build/outputs/apk/offline/release/app-offline-release.apk "$OFFLINE"
           cp app/build/outputs/apk/online/release/app-online-release.apk "$ONLINE"
-          cat > notes.md <<'EOF'
-          Two builds, pick one (installing one over the other keeps your settings):
+          cat > notes.md <<EOF
+          **Which APK?**
+          - \`$OFFLINE\`: HorizOn. No internet permission. The lyrics screen shows a visualizer.
+          - \`$ONLINE\`: HorizOn+. Adds internet, used only to look up song lyrics on lrclib.net once you turn Lyrics on.
 
-          - **HorizOn-…apk**: no internet permission. The lyrics screen shows a visualizer.
-          - **HorizOnPlus-…apk** (HorizOn+): adds internet, used only to look up time-synced lyrics on lrclib.net once you turn Lyrics on.
-
+          Both are signed with the same key, so you can switch by installing one over the other.
           EOF
           gh release create "$GITHUB_REF_NAME" "$OFFLINE" "$ONLINE" --title "HorizOn $GITHUB_REF_NAME" --notes-file notes.md --generate-notes
