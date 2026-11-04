@@ -125,7 +125,7 @@ private object DemoSession {
     }
 }
 
-/** Made-up lyrics for the demo songs, line-synced every 4.4 s for the whole song. */
+/** Made-up lyrics for the demo songs: a 20 s intro, then line-synced every 4.4 s for the rest of the song. */
 private object DemoLyrics : LyricsSource {
     private val verses = listOf(
         "Streetlights hum a quiet tune",
@@ -142,7 +142,7 @@ private object DemoLyrics : LyricsSource {
     override suspend fun find(request: LyricsRequest): LyricsResult {
         if (request.title == "Green Room Sessions") return LyricsResult.Instrumental
         val lrc = buildString {
-            var t = 2_000L
+            var t = 20_000L
             var i = 0
             while (t < request.durationMs) {
                 append("[%02d:%02d.%02d]".format(Locale.ROOT, t / 60_000, t / 1_000 % 60, t % 1_000 / 10))

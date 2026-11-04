@@ -55,6 +55,9 @@ import androidx.compose.ui.unit.sp
 import dev.horizon.lyrics.LyricsRepository
 import dev.horizon.lyrics.LyricsRequest
 import dev.horizon.lyrics.LyricsResult
+import dev.horizon.lyrics.LyricsWait
+import dev.horizon.lyrics.timedWords
+import dev.horizon.lyrics.waitAt
 import dev.horizon.media.NowPlaying
 import dev.horizon.media.formatTrackTime
 import dev.horizon.nav.NavState
@@ -69,6 +72,9 @@ import kotlinx.coroutines.delay
 
 /** How long the song position stays up after a tap. */
 private const val SCRUB_VISIBLE_MS = 3_500L
+
+/** A shorter intro than this gets no countdown; it would only flash. */
+private const val INTRO_COUNTDOWN_MIN_MS = 4_000L
 
 /**
  * The third screen (swipe left from clock + music): time-synced lyrics as a web of words, or a
@@ -105,6 +111,15 @@ fun LyricsPage(
     }
     val synced = result as? LyricsResult.Synced
 
+    // Before the first word and in long breaks the web has nothing to draw, so the visualizer fills in.
+    val words = remember(synced) { synced?.lyrics?.timedWords().orEmpty() }
+    val wait by produceState<LyricsWait?>(null, words, nowPlaying) {
+        while (true) {
+            value = words.waitAt(nowPlaying.positionAt(SystemClock.elapsedRealtime()))
+            delay(250)
+        }
+    }
+
     var taps by remember { mutableIntStateOf(0) }
     var scrubVisible by remember { mutableStateOf(false) }
     LaunchedEffect(taps) {
@@ -124,7 +139,7 @@ fun LyricsPage(
                 customActions = listOf(CustomAccessibilityAction("Open ${nowPlaying.appLabel ?: "music app"}") { onOpenApp(); true })
             },
     ) {
-        Crossfade(synced?.lyrics, label = "lyrics", modifier = Modifier.fillMaxSize()) { lyrics ->
+        Crossfade(synced?.lyrics?.takeIf { wait == null }, label = "lyrics", modifier = Modifier.fillMaxSize()) { lyrics ->
             if (lyrics != null) {
                 LyricsWeb(lyrics, nowPlaying, colors.accent, reduceMotion, Modifier.fillMaxSize())
             } else {
@@ -147,8 +162,10 @@ fun LyricsPage(
             )
         }
 
+        val introLeft = wait?.takeIf { it.kind == LyricsWait.Kind.Intro }?.untilNextMs?.takeIf { it > INTRO_COUNTDOWN_MIN_MS }
         val status = when {
             showLyricsPrompt -> null
+            introLeft != null -> "Lyrics in ${formatTrackTime(introLeft + 999)}"
             result == LyricsResult.Instrumental -> "Instrumental"
             lyricsEnabled && result == LyricsResult.NotFound -> "No lyrics found for this song"
             lyricsEnabled && result == LyricsResult.Unavailable -> "Couldn't reach the lyrics service"

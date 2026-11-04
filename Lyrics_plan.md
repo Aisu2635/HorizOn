@@ -134,6 +134,8 @@ Colour changes animate over 600 ms, as the card tint already does.
 
 ## 8. Glass edge on the music card (Edge light)
 
+> Removed 2026-11-05: on a real screen the rim read as a metallic border around the card and pill. Both now rely on the album tint alone.
+
 In `PlayerCard`, after `cardBackground`:
 - A 1.2 dp border with `Brush.linearGradient` from top-left to bottom-right: white at 55% → 10% → 6% → accent at 45%, with the card's 28 dp corners.
 - Same treatment, scaled down, on the now-playing pill.

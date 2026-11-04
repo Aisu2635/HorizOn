@@ -62,6 +62,27 @@ class TimedWordsTest {
         assertEquals(7, words.countAt(99_000))
     }
 
+    @Test fun `intro waits for the first word`() {
+        val words = lyrics.timedWords()
+        assertEquals(LyricsWait(LyricsWait.Kind.Intro, 8_000), words.waitAt(2_000))
+        assertNull(words.waitAt(9_000)) // within the lead-in
+    }
+
+    @Test fun `a long break waits after its last line has been read`() {
+        val words = lyrics.timedWords()
+        // "e" at 14 s, then nothing until "f" at 30 s.
+        assertNull(words.waitAt(12_000))
+        assertNull(words.waitAt(17_000))
+        assertEquals(LyricsWait(LyricsWait.Kind.Break, 9_000), words.waitAt(21_000))
+    }
+
+    @Test fun `the outro starts once the last line has been read`() {
+        val words = lyrics.timedWords()
+        // Last word "g" at 32.55 s.
+        assertNull(words.waitAt(35_000))
+        assertEquals(LyricsWait(LyricsWait.Kind.Outro, null), words.waitAt(39_000))
+    }
+
     @Test fun `enhanced times never run backwards`() {
         val words = LrcParser.parse("[00:05.00]<00:05.00>a <00:04.00>b").timedWords()
         assertEquals(listOf(5_000L, 5_000L), words.map { it.timeMs })

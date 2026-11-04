@@ -9,7 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
@@ -43,21 +42,6 @@ fun rememberArtColors(art: Bitmap?): ArtColors {
     }
     return colors
 }
-
-/**
- * "Edge light": a thin glass rim, bright where light catches the top-left corner, fading along the
- * sides, with a touch of [accent] at the bottom-right. Gives a card its shape on a pure black screen.
- */
-fun Modifier.glassRim(accent: Color, shape: Shape): Modifier = border(
-    width = 1.2.dp,
-    brush = Brush.linearGradient(
-        0f to Color.White.copy(alpha = 0.55f),
-        0.28f to Color.White.copy(alpha = 0.10f),
-        0.7f to Color.White.copy(alpha = 0.06f),
-        1f to accent.copy(alpha = 0.45f),
-    ),
-    shape = shape,
-)
 
 /** A hairline that keeps a near-black album cover from disappearing into the black screen. */
 fun Modifier.artOutline(shape: Shape): Modifier = border(0.75.dp, Color.White.copy(alpha = 0.15f), shape)

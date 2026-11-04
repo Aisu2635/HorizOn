@@ -20,3 +20,6 @@
 /nav_samples_out/
 /crash_log.txt
 /shade_*.png
+
+# Launch video workspace (/brag)
+/brag-output/

@@ -12,11 +12,11 @@ An open-source Android app that turns a charging phone on its side into a calm d
 
 - Big landscape clock with date and battery/charging status
 - Now playing from any music app that publishes a media session, with play/pause, previous and next
-- Player background, glass edge and accent colours taken from the album art (dark and black-and-white covers included)
+- Player background and accent colours taken from the album art (dark and black-and-white covers included)
 - Starts automatically while charging (Android screen saver), or launch it from the app icon
 - Burn-in protection, and a pure black background so OLED screens keep unused pixels off
 - Optional turn-by-turn directions from Google Maps next to the music (tap the screen, then **Directions**)
-- Swipe left while music plays: time-synced lyrics drawn as a web of words (HorizOn+ only), or a visualizer in the album's colours
+- Swipe left while music plays: time-synced lyrics drawn as a web of words (HorizOn+ only), or a visualizer in the album's colours. The visualizer also fills a song's intro (with a countdown), long instrumental breaks and the outro; choruses and held line endings get a glow and a shockwave
 
 Night mode, more clock faces and alarm display are planned for v0.2.
 

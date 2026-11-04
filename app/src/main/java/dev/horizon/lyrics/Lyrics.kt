@@ -101,6 +101,40 @@ fun Lyrics.timedWords(): List<TimedWord> {
     return out
 }
 
+/** A gap between words at least this long is an instrumental break. */
+const val LYRICS_BREAK_MS = 15_000L
+
+/** The web comes back this long before the next word, so its first word doesn't pop in cold. */
+const val LYRICS_LEAD_IN_MS = 1_500L
+
+/** After the last word before a break, its line stays on screen this long. */
+const val LYRICS_HOLD_MS = 6_000L
+
+/** A stretch with nothing to sing: before the first word, a break mid-song, or after the last word. */
+data class LyricsWait(val kind: Kind, val untilNextMs: Long?) {
+    enum class Kind { Intro, Break, Outro }
+}
+
+/**
+ * Whether [positionMs] falls in the intro, a long break or the outro, when the web would be blank
+ * or frozen. Null while words are due. After a break's (or the song's) last word, its line stays up
+ * for [LYRICS_HOLD_MS] so it can be read to the end.
+ */
+fun List<TimedWord>.waitAt(positionMs: Long): LyricsWait? {
+    if (isEmpty()) return null
+    val count = countAt(positionMs)
+    val last = getOrNull(count - 1)?.timeMs
+    val next = getOrNull(count)?.timeMs
+    if (next == null) {
+        return if (positionMs - last!! >= LYRICS_HOLD_MS) LyricsWait(LyricsWait.Kind.Outro, null) else null
+    }
+    val untilNext = next - positionMs
+    if (untilNext <= LYRICS_LEAD_IN_MS) return null
+    if (last == null) return LyricsWait(LyricsWait.Kind.Intro, untilNext)
+    val isBreak = next - last >= LYRICS_BREAK_MS && positionMs - last >= LYRICS_HOLD_MS
+    return if (isBreak) LyricsWait(LyricsWait.Kind.Break, untilNext) else null
+}
+
 /** How many of these words have been sung by [positionMs] (they are in time order). */
 fun List<TimedWord>.countAt(positionMs: Long): Int {
     var lo = 0
