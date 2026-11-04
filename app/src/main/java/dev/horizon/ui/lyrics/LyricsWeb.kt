@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -24,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
+import dev.horizon.lyrics.LYRICS_BREAK_MS
+import dev.horizon.lyrics.LYRICS_HOLD_MS
 import dev.horizon.lyrics.Lyrics
 import dev.horizon.lyrics.TimedWord
 import dev.horizon.lyrics.countAt
@@ -90,11 +93,50 @@ private class WebNode(
 
 private class WebLink(val a: WebNode, val b: WebNode, val born: Long)
 
+/** A line followed by at least this much silence is a held ending and gets a finale. */
+private const val HELD_MS = 2_000L
+
+/** How long a finale's glow and shockwave take. */
+private const val FINALE_MS = 1_400f
+
+/** Over this long before the outro takes over, the last line's web drifts apart and fades. */
+private const val DISSOLVE_MS = 1_600f
+
+/** When more than this share of lines repeat, the song is loops and nothing counts as a chorus. */
+private const val MAX_CHORUS_SHARE = 0.6f
+
+/**
+ * What the timings say about a line. LRC files carry no loudness, so the big moments are read from
+ * timing alone: a line that repeats is a chorus, a line followed by silence is a held ending.
+ */
+private class LineInfo(val lastWordMs: Long, val held: Boolean, val chorus: Boolean, val leaves: Boolean)
+
+private fun lineInfo(words: List<TimedWord>): Map<Int, LineInfo> {
+    val byLine = words.groupBy { it.line }
+    val lines = byLine.keys.toList()
+    val texts = byLine.mapValues { (_, w) -> w.joinToString(" ") { it.text.lowercase().filter(Char::isLetterOrDigit) } }
+    val repeats = texts.values.groupingBy { it }.eachCount()
+    val repeated = texts.filterValues { repeats.getValue(it) > 1 }.keys
+    val choruses = if (repeated.size <= lines.size * MAX_CHORUS_SHARE) repeated else emptySet()
+    return lines.mapIndexed { i, line ->
+        val lastWord = byLine.getValue(line).last().timeMs
+        val nextStart = lines.getOrNull(i + 1)?.let { byLine.getValue(it).first().timeMs }
+        line to LineInfo(
+            lastWordMs = lastWord,
+            held = nextStart == null || nextStart - lastWord >= HELD_MS,
+            chorus = line in choruses,
+            leaves = nextStart == null || nextStart - lastWord >= LYRICS_BREAK_MS,
+        )
+    }.toMap()
+}
+
 private class WebEngine(private val words: List<TimedWord>) {
     private val nodes = ArrayList<WebNode>()
     private val links = ArrayList<WebLink>()
     private var spawned = 0
     private val random = Random(words.size)
+    private val lines = lineInfo(words)
+    private var position = 0L
 
     /** When each line ends: the first word of the next line with words, for fading. */
     private val lineEnds: Map<Int, Long> = run {
@@ -105,6 +147,7 @@ private class WebEngine(private val words: List<TimedWord>) {
     }
 
     fun update(positionMs: Long, now: Long, width: Float, height: Float, density: Float) {
+        position = positionMs
         val target = words.countAt(positionMs)
         if (target < spawned || target - spawned > MAX_CATCH_UP) {
             // Seek or new position: start again from the current line.
@@ -170,37 +213,83 @@ private class WebEngine(private val words: List<TimedWord>) {
 
     private fun DrawScope.drawWeb(current: WebNode, now: Long, accent: Color, measurer: TextMeasurer, reduceMotion: Boolean) {
         val drift = if (reduceMotion) 0f else density
-        fun pos(n: WebNode) = Offset(
-            n.x + sin(now / 1900f + n.phase) * 3f * drift,
-            n.y + cos(now / 2300f + n.phase) * 2.4f * drift,
-        )
+        val line = lines[current.word.line]
+        val chorus = line?.chorus == true
+
+        // Finale: once a held line's last word lands, the line glows up and settles (0..1).
+        val finale = if (line != null && line.held && position >= line.lastWordMs) {
+            ((position - line.lastWordMs) / FINALE_MS).coerceIn(0f, 1f)
+        } else {
+            -1f
+        }
+        val swell = if (finale >= 0f) sin(finale * PI.toFloat()) else 0f
+
+        // Before a break or the end, the web drifts apart and fades just ahead of the visualizer.
+        val dissolve = if (line != null && line.leaves) {
+            ((position - line.lastWordMs - (LYRICS_HOLD_MS - DISSOLVE_MS)) / DISSOLVE_MS).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        val fade = 1f - dissolve
+        val spread = if (reduceMotion) 0f else dissolve * dissolve * 60f * density
+        val centre = if (spread == 0f) Offset.Zero else Offset(nodes.sumOf { it.x.toDouble() }.toFloat(), nodes.sumOf { it.y.toDouble() }.toFloat()) / nodes.size.toFloat()
+
+        fun pos(n: WebNode): Offset {
+            val base = Offset(
+                n.x + sin(now / 1900f + n.phase) * 3f * drift,
+                n.y + cos(now / 2300f + n.phase) * 2.4f * drift,
+            )
+            if (spread == 0f) return base
+            val away = base - centre
+            val d = away.getDistance().coerceAtLeast(1f)
+            return base + away / d * spread
+        }
 
         fun edge(a: WebNode, b: WebNode, born: Long, emphasis: Boolean) {
-            val alpha = min(a.alpha, b.alpha) * if (emphasis) 0.8f else 0.25f
+            val alpha = min(a.alpha, b.alpha) * (if (emphasis) 0.8f else 0.25f) * fade
             if (alpha <= 0f) return
             val pa = pos(a)
             val pb = pos(b)
             val t = ((now - born).toFloat() / EDGE_DRAW_MS).coerceIn(0f, 1f)
+            val end = pa + (pb - pa) * t
+            if (emphasis && swell > 0f) {
+                // A soft halo along the line's edges as it peaks.
+                drawLine(accent.copy(alpha = 0.22f * swell * fade), pa, end, 7f * density, StrokeCap.Round)
+            }
             drawLine(
                 color = if (emphasis) accent.copy(alpha = alpha) else Paper.copy(alpha = alpha),
                 start = pa,
-                end = pa + (pb - pa) * t,
-                strokeWidth = (if (emphasis) 1.6f else 1f) * density,
+                end = end,
+                strokeWidth = (if (emphasis) (if (chorus) 2.2f else 1.6f) else 1f) * density,
                 cap = StrokeCap.Round,
             )
         }
         for (n in nodes) n.prev?.let { edge(it, n, n.born, n.word.line == current.word.line) }
         for (l in links) edge(l.a, l.b, l.born, false)
 
+        // The shockwave: a ring that leaves the last word of a held line.
+        if (finale in 0f..1f && !reduceMotion) {
+            val eased = 1f - (1f - finale) * (1f - finale)
+            val ringAlpha = 0.5f * (1f - finale) * fade
+            if (ringAlpha > 0f) {
+                drawCircle(
+                    color = accent.copy(alpha = ringAlpha),
+                    radius = (26f + (if (chorus) 190f else 140f) * eased) * density,
+                    center = pos(current),
+                    style = Stroke(width = (2.5f * (1f - finale) + 0.5f) * density),
+                )
+            }
+        }
+
         for (n in nodes) {
             val appear = ((now - n.born).toFloat() / APPEAR_MS).coerceIn(0f, 1f)
-            val alpha = n.alpha * appear
+            val alpha = n.alpha * appear * fade
             if (alpha <= 0f) continue
             val p = pos(n)
             val isCurrent = n === current
             val sameLine = n.word.line == current.word.line
             if (isCurrent) {
-                val r = 26f * density
+                val r = (if (chorus) 38f else 26f) * (1f + 0.5f * swell) * density
                 drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.55f * alpha), Color.Transparent), p, r), r, p)
             }
             drawCircle(
@@ -209,8 +298,8 @@ private class WebEngine(private val words: List<TimedWord>) {
                 center = p,
             )
             val textSize = when {
-                isCurrent -> 28
-                sameLine -> 20
+                isCurrent -> if (chorus) 34 else 28
+                sameLine -> if (chorus) 23 else 20
                 else -> 16
             }
             val layout = n.layouts.getOrPut(textSize) {
@@ -224,7 +313,7 @@ private class WebEngine(private val words: List<TimedWord>) {
             val textX = if (p.x + gap + layout.size.width < size.width) p.x + gap else p.x - gap - layout.size.width
             val color = when {
                 isCurrent -> Paper
-                sameLine -> Paper.copy(alpha = 0.85f)
+                sameLine -> Paper.copy(alpha = 0.85f + 0.15f * swell)
                 else -> Muted
             }
             drawText(layout, color = color, topLeft = Offset(textX, p.y - layout.size.height / 2f), alpha = alpha)

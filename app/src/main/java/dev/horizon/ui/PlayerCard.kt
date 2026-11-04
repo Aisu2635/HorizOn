@@ -132,7 +132,6 @@ fun PlayerCard(
         modifier
             .fillMaxSize()
             .cardBackground(tint)
-            .glassRim(accent, RoundedCornerShape(28.dp))
             .pointerInput(onTap, onOpenApp) {
                 detectTapGestures(onTap = { onTap() }, onDoubleTap = { onOpenApp() })
             }
@@ -425,7 +424,6 @@ fun NowPlayingPill(nowPlaying: NowPlaying, onClick: () -> Unit, modifier: Modifi
         modifier
             .clip(pill)
             .background(Color(0xFF1A1715))
-            .glassRim(colors.accent, pill)
             .clickable(onClickLabel = "Show player", role = Role.Button, onClick = onClick)
             .padding(start = 10.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
