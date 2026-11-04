@@ -60,10 +60,29 @@ class SettingsRepository(context: Context) {
         store.edit { it[NAV_PROMPT_DISMISSED] = dismissed }
     }
 
-    private companion object {
-        val CLOCK_FACE = stringPreferencesKey("clock_face")
+    /** HorizOn+ only: whether to look up lyrics online. Off until the user agrees. */
+    val showLyrics: Flow<Boolean> = store.data.map { it[SHOW_LYRICS] ?: false }
+
+    /** Turning lyrics on or off also answers the "show lyrics?" card. */
+    suspend fun setShowLyrics(show: Boolean) {
+        store.edit {
+            it[SHOW_LYRICS] = show
+            it[LYRICS_PROMPT_DISMISSED] = true
+        }
+    }
+
+    /** Whether the user has answered the "show lyrics?" card. */
+    val lyricsPromptDismissed: Flow<Boolean> = store.data.map { it[LYRICS_PROMPT_DISMISSED] ?: false }
+
+    suspend fun setLyricsPromptDismissed(dismissed: Boolean) {
+        store.edit { it[LYRICS_PROMPT_DISMISSED] = dismissed }
+    }
+
+    private companion object {        val CLOCK_FACE = stringPreferencesKey("clock_face")
         val MUSIC_PROMPT_DISMISSED = booleanPreferencesKey("music_prompt_dismissed")
         val SHOW_NAVIGATION = booleanPreferencesKey("show_navigation")
         val NAV_PROMPT_DISMISSED = booleanPreferencesKey("nav_prompt_dismissed")
+        val SHOW_LYRICS = booleanPreferencesKey("show_lyrics")
+        val LYRICS_PROMPT_DISMISSED = booleanPreferencesKey("lyrics_prompt_dismissed")
     }
 }

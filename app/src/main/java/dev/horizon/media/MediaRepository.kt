@@ -160,6 +160,7 @@ class MediaRepository(context: Context) {
             artist = metadata?.text(MediaMetadata.METADATA_KEY_ARTIST)
                 ?: metadata?.text(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
                 ?: metadata?.text(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE),
+            album = metadata?.text(MediaMetadata.METADATA_KEY_ALBUM),
             art = metadata?.let {
                 it.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                     ?: it.getBitmap(MediaMetadata.METADATA_KEY_ART)

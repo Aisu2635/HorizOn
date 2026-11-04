@@ -23,8 +23,8 @@ android {
         applicationId = "dev.horizon"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -37,6 +37,21 @@ android {
                 keyAlias = signingValue("keyAlias", "HORIZON_KEY_ALIAS")
                 keyPassword = signingValue("keyPassword", "HORIZON_KEY_PASSWORD")
             }
+        }
+    }
+
+    // Two builds (Lyrics_plan.md, section 2). "offline" is HorizOn as it has always been, with no
+    // internet permission. "online" (HorizOn+) adds internet, used only to look up lyrics.
+    // Same applicationId and key, so one can be installed over the other.
+    flavorDimensions += "network"
+    productFlavors {
+        create("offline") {
+            dimension = "network"
+            isDefault = true
+        }
+        create("online") {
+            dimension = "network"
+            versionNameSuffix = "-online"
         }
     }
 
