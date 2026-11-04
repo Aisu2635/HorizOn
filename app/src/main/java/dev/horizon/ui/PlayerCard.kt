@@ -57,8 +57,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -77,17 +75,14 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.palette.graphics.Palette
 import dev.horizon.media.NowPlaying
 import dev.horizon.media.formatTrackTime
 import dev.horizon.ui.theme.Amber
 import dev.horizon.ui.theme.Ink
 import dev.horizon.ui.theme.Muted
 import dev.horizon.ui.theme.Paper
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withContext
 
 // Fades to pure black (pixels off on OLED); only the art-tinted corner lights up.
 private val CardBase = Color(0xFF000000)
@@ -100,11 +95,6 @@ private const val TRACK_SLIDE_MS = 380
 
 /** How long a Previous/Next press decides the slide direction. */
 private const val DIRECTION_TTL_MS = 2_000L
-
-/** Colors pulled from the album art: a dark tint for the card and a bright accent. */
-private data class ArtColors(val tint: Color, val accent: Color)
-
-private val DefaultArtColors = ArtColors(NeutralTint, Amber)
 
 /** Card background: the tint in the top-left corner fading into the base, like the mockup. */
 fun Modifier.cardBackground(tint: Color): Modifier = clip(RoundedCornerShape(28.dp)).drawBehind {
@@ -142,6 +132,7 @@ fun PlayerCard(
         modifier
             .fillMaxSize()
             .cardBackground(tint)
+            .glassRim(accent, RoundedCornerShape(28.dp))
             .pointerInput(onTap, onOpenApp) {
                 detectTapGestures(onTap = { onTap() }, onDoubleTap = { onOpenApp() })
             }
@@ -235,29 +226,6 @@ private fun TrackHeader(track: NowPlaying, artSize: Dp, accent: Color) {
 }
 
 @Composable
-private fun rememberArtColors(art: Bitmap?): ArtColors {
-    var colors by remember { mutableStateOf(DefaultArtColors) }
-    LaunchedEffect(art) {
-        colors = if (art == null) {
-            DefaultArtColors
-        } else {
-            withContext(Dispatchers.Default) { Palette.from(art).maximumColorCount(16).generate().toArtColors() }
-        }
-    }
-    return colors
-}
-
-private fun Palette.toArtColors(): ArtColors {
-    val tintSwatch = darkVibrantSwatch ?: darkMutedSwatch ?: dominantSwatch ?: return DefaultArtColors
-    // Keep the tint dark enough that white text stays readable on it.
-    val tint = lerp(Color(tintSwatch.rgb), Color.Black, 0.35f)
-    val accentSwatch = vibrantSwatch ?: lightVibrantSwatch ?: lightMutedSwatch
-    var accent = accentSwatch?.let { Color(it.rgb) } ?: Amber
-    if (accent.luminance() < 0.25f) accent = lerp(accent, Color.White, 0.45f)
-    return ArtColors(tint, accent)
-}
-
-@Composable
 private fun AlbumArt(art: Bitmap?, size: Dp, accent: Color) {
     val shape = RoundedCornerShape(16.dp)
     if (art != null) {
@@ -266,7 +234,7 @@ private fun AlbumArt(art: Bitmap?, size: Dp, accent: Color) {
             bitmap = image,
             contentDescription = "Album art",
             contentScale = ContentScale.Crop,
-            modifier = Modifier.size(size).clip(shape),
+            modifier = Modifier.size(size).clip(shape).artOutline(shape),
         )
     } else {
         // No art from the app: a soft gradient tile with a note.
@@ -452,16 +420,18 @@ private fun TransportButton(
 @Composable
 fun NowPlayingPill(nowPlaying: NowPlaying, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val pill = RoundedCornerShape(50)
+    val colors = rememberArtColors(nowPlaying.art)
     Row(
         modifier
             .clip(pill)
             .background(Color(0xFF1A1715))
+            .glassRim(colors.accent, pill)
             .clickable(onClickLabel = "Show player", role = Role.Button, onClick = onClick)
             .padding(start = 10.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AlbumArt(nowPlaying.art, 32.dp, Amber)
+        AlbumArt(nowPlaying.art, 32.dp, colors.accent)
         Text(
             nowPlaying.title,
             color = Paper,

@@ -20,6 +20,8 @@ data class NowPlaying(
     val canSkipNext: Boolean,
     /** Whether the app accepts seeking (some live streams don't). */
     val canSeek: Boolean = false,
+    /** Album name, when the app reports one (helps find the right lyrics). */
+    val album: String? = null,
 ) {
     /** Extrapolates the playback position to [nowElapsed], clamped to the track length. */
     fun positionAt(nowElapsed: Long): Long {

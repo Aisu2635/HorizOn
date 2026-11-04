@@ -37,19 +37,29 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
 
-      - name: Test and build signed release APK
+      - name: Test and build signed release APKs
         env:
           HORIZON_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
           HORIZON_KEYSTORE_PASSWORD: ${{ secrets.HORIZON_KEYSTORE_PASSWORD }}
           HORIZON_KEY_ALIAS: ${{ secrets.HORIZON_KEY_ALIAS }}
           HORIZON_KEY_PASSWORD: ${{ secrets.HORIZON_KEY_PASSWORD }}
-        # Unit tests only exist for the debug variant (AGP default); they cover the same code.
-        run: ./gradlew testDebugUnitTest assembleRelease
+        # Unit tests only exist for the debug variants (AGP default); they cover the same code.
+        run: ./gradlew testOfflineDebugUnitTest testOnlineDebugUnitTest assembleOfflineRelease assembleOnlineRelease
 
+      # Two builds: HorizOn (no internet) and HorizOn+ (adds internet for lyrics).
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="HorizOn-$GITHUB_REF_NAME.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$APK"
-          gh release create "$GITHUB_REF_NAME" "$APK" --title "HorizOn $GITHUB_REF_NAME" --generate-notes
+          OFFLINE="HorizOn-$GITHUB_REF_NAME.apk"
+          ONLINE="HorizOnPlus-$GITHUB_REF_NAME.apk"
+          cp app/build/outputs/apk/offline/release/app-offline-release.apk "$OFFLINE"
+          cp app/build/outputs/apk/online/release/app-online-release.apk "$ONLINE"
+          cat > notes.md <<'EOF'
+          Two builds, pick one (installing one over the other keeps your settings):
+
+          - **HorizOn-…apk**: no internet permission. The lyrics screen shows a visualizer.
+          - **HorizOnPlus-…apk** (HorizOn+): adds internet, used only to look up time-synced lyrics on lrclib.net once you turn Lyrics on.
+
+          EOF
+          gh release create "$GITHUB_REF_NAME" "$OFFLINE" "$ONLINE" --title "HorizOn $GITHUB_REF_NAME" --notes-file notes.md --generate-notes
